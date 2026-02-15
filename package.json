@@ -1,22 +1,28 @@
 {
-  "name": "queuebit",
+  "name": "@usermetrics/queuebit",
   "version": "1.0.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "A socket server API for using a queue with guaranteed delivery",
   "main": "src/index.js",
   "browser": "src/client-browser.js",
   "scripts": {
     "test": "node test/test-harness.js",
     "start": "node src/index.js",
-    "server": "node src/server-runner.js"
+    "server": "node src/server-runner.js",
+    "prepublishOnly": "npm test"
   },
   "keywords": [
     "queue",
     "socket",
     "nats",
     "message-queue",
-    "websocket"
+    "websocket",
+    "pubsub",
+    "realtime"
   ],
-  "author": "",
+  "author": "Karl Lilje <karl@karllilje.com>",
   "license": "MIT",
   "dependencies": {
     "socket.io": "^4.7.2",
@@ -34,10 +40,13 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/queuebit.git"
+    "url": "https://github.com/bigfun123/queuebit.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/queuebit/issues"
+    "url": "https://github.com/bigfun123/queuebit/issues"
   },
-  "homepage": "https://github.com/yourusername/queuebit#readme"
+  "homepage": "https://github.com/bigfun123/queuebit#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  }
 }

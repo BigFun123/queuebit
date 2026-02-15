@@ -185,6 +185,44 @@ Unsubscribe from messages.
 ##### `disconnect()`
 Disconnect from the server.
 
+## Publishing to NPM
+
+### First Time Setup
+
+1. Create an NPM account at https://www.npmjs.com/signup
+2. Run authentication setup:
+   ```cmd
+   setup-npm-auth.cmd
+   ```
+3. Update package.json with your username:
+   - Change `@yourusername/queuebit` to `@YOUR_NPM_USERNAME/queuebit`
+   - Or use an unscoped name like `queuebit-yourname` if available
+   - Update author field with your information
+
+### Publishing
+
+1. Update version number:
+   ```cmd
+   update-version.cmd
+   ```
+
+2. **Without 2FA:**
+   ```cmd
+   publish.cmd
+   ```
+
+3. **With 2FA enabled:**
+   ```cmd
+   publish-with-otp.cmd
+   ```
+
+### Troubleshooting
+
+- **403 Forbidden / 2FA Required**: Use `publish-with-otp.cmd`
+- **Package name taken**: Change name in package.json to something unique
+- **Not logged in**: Run `npm login` or `setup-npm-auth.cmd`
+- **Version already exists**: Increment version with `update-version.cmd`
+
 ## Development
 
 ### Install Dependencies
