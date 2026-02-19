@@ -79,12 +79,14 @@ class QueueBitClient {
 
   subscribe(callback, options = {}) {
     const subject = options.subject || 'default';
+    const queueName = options.queue || null;
+    const handlerKey = queueName ? `${subject}:${queueName}` : subject;
     
-    if (!this.messageHandlers.has(subject)) {
-      this.messageHandlers.set(subject, new Set());
+    if (!this.messageHandlers.has(handlerKey)) {
+      this.messageHandlers.set(handlerKey, new Set());
     }
     
-    this.messageHandlers.get(subject).add(callback);
+    this.messageHandlers.get(handlerKey).add(callback);
 
     return new Promise((resolve) => {
       this.socket.emit('subscribe', options, (response) => {
@@ -95,7 +97,9 @@ class QueueBitClient {
 
   unsubscribe(options = {}) {
     const subject = options.subject || 'default';
-    this.messageHandlers.delete(subject);
+    const queueName = options.queue || null;
+    const handlerKey = queueName ? `${subject}:${queueName}` : subject;
+    this.messageHandlers.delete(handlerKey);
 
     return new Promise((resolve) => {
       this.socket.emit('unsubscribe', options, (response) => {
@@ -114,8 +118,10 @@ class QueueBitClient {
 
   handleMessage(message) {
     const subject = message.subject || 'default';
-    const handlers = this.messageHandlers.get(subject);
-    
+    const queueName = message.queueName || null;
+    const handlerKey = queueName ? `${subject}:${queueName}` : subject;
+
+    const handlers = this.messageHandlers.get(handlerKey);
     if (handlers) {
       for (const handler of handlers) {
         handler(message);

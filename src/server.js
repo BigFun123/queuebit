@@ -10,7 +10,8 @@ class QueueBitServer {
     
     this.messages = new Map();
     this.subscribers = new Map();
-    this.queueGroups = new Map();
+    this.loadBalancers = new Map();
+    this.loadBalancerIdCounter = 0;
     this.deliveryQueue = [];
     this.deliveryBatchSize = 100;
     this.isDelivering = false;
@@ -124,36 +125,42 @@ class QueueBitServer {
 
   deliverMessage(message) {
     const subject = message.subject || 'default';
-    let delivered = false;
 
-    // Deliver to queue groups (load balanced)
-    const queueGroups = this.queueGroups.get(subject);
-    if (queueGroups) {
-      for (const [queueName, sockets] of queueGroups.entries()) {
-        if (sockets.length > 0) {
-          const socket = sockets[0];
-          sockets.push(sockets.shift());
-          
-          socket.emit('message', message);
-          delivered = true;
-          
-          if (message.removeAfterRead) {
-            this.removeMessage(message.id, subject);
-            return;
-          }
+    const loadBalancers = this.loadBalancers.get(subject);
+    if (loadBalancers && loadBalancers.size > 0) {
+      const activeLBs = [];
+      for (const [lbName, lb] of loadBalancers.entries()) {
+        if (lb.sockets.length > 0) {
+          activeLBs.push(lb);
         }
+      }
+
+      if (activeLBs.length > 0) {
+        if (!this._lbRoundRobinIndex) this._lbRoundRobinIndex = {};
+        if (this._lbRoundRobinIndex[subject] === undefined) this._lbRoundRobinIndex[subject] = 0;
+
+        const idx = this._lbRoundRobinIndex[subject] % activeLBs.length;
+        this._lbRoundRobinIndex[subject]++;
+
+        const lb = activeLBs[idx];
+        const socket = lb.sockets[0];
+        lb.sockets.push(lb.sockets.shift()); // rotate within LB
+
+        socket.emit('message', { ...message, loadBalancerId: lb.id, queueName: lb.name });
+
+        // Always remove from store after LB delivery - LB messages are consumed, not persistent
+        this.removeMessage(message.id, subject);
+        return;
       }
     }
 
-    // Deliver to regular subscribers (all receive)
+    // Only deliver to regular subscribers if no load balancer handled it
     const subscribers = this.subscribers.get(subject);
     if (subscribers) {
       for (const socket of subscribers) {
         socket.emit('message', message);
-        delivered = true;
       }
-      
-      if (message.removeAfterRead && !queueGroups) {
+      if (message.removeAfterRead) {
         this.removeMessage(message.id, subject);
       }
     }
@@ -161,20 +168,20 @@ class QueueBitServer {
 
   handleSubscribe(socket, options, callback) {
     const subject = options.subject || 'default';
-    const queueName = options.queue;
+    const lbName = options.queue;
 
-    if (queueName) {
-      // Queue group subscription (load balanced)
-      if (!this.queueGroups.has(subject)) {
-        this.queueGroups.set(subject, new Map());
+    if (lbName) {
+      if (!this.loadBalancers.has(subject)) {
+        this.loadBalancers.set(subject, new Map());
       }
       
-      const queues = this.queueGroups.get(subject);
-      if (!queues.has(queueName)) {
-        queues.set(queueName, []);
+      const lbs = this.loadBalancers.get(subject);
+      if (!lbs.has(lbName)) {
+        lbs.set(lbName, { id: ++this.loadBalancerIdCounter, name: lbName, sockets: [] });
       }
       
-      queues.get(queueName).push(socket);
+      lbs.get(lbName).sockets.push(socket);
+      // Do NOT replay existing messages to load balancer subscribers
     } else {
       // Regular subscription (all subscribers get messages)
       if (!this.subscribers.has(subject)) {
@@ -182,33 +189,38 @@ class QueueBitServer {
       }
       
       this.subscribers.get(subject).add(socket);
-    }
 
-    // Deliver any existing messages
-    const messages = this.messages.get(subject) || [];
-    for (const message of messages) {
-      if (!message.removeAfterRead) {
-        socket.emit('message', message);
+      // Replay existing messages only for regular subscribers
+      const messages = this.messages.get(subject) || [];
+      for (const message of messages) {
+        if (!message.removeAfterRead) {
+          socket.emit('message', message);
+        }
       }
     }
 
     if (callback) {
-      callback({ success: true, subject, queue: queueName });
+      callback({ 
+        success: true, 
+        subject, 
+        loadBalancer: lbName,
+        loadBalancerId: lbName ? this.loadBalancers.get(subject)?.get(lbName)?.id : undefined
+      });
     }
   }
 
   handleUnsubscribe(socket, options, callback) {
     const subject = options.subject || 'default';
-    const queueName = options.queue;
+    const lbName = options.queue;
 
-    if (queueName) {
-      const queues = this.queueGroups.get(subject);
-      if (queues) {
-        const sockets = queues.get(queueName);
-        if (sockets) {
-          const index = sockets.indexOf(socket);
+    if (lbName) {
+      const lbs = this.loadBalancers.get(subject);
+      if (lbs) {
+        const lb = lbs.get(lbName);
+        if (lb) {
+          const index = lb.sockets.indexOf(socket);
           if (index > -1) {
-            sockets.splice(index, 1);
+            lb.sockets.splice(index, 1);
           }
         }
       }
@@ -230,12 +242,12 @@ class QueueBitServer {
       subscribers.delete(socket);
     }
 
-    // Remove from all queue groups
-    for (const queues of this.queueGroups.values()) {
-      for (const sockets of queues.values()) {
-        const index = sockets.indexOf(socket);
+    // Remove from all load balancers
+    for (const lbs of this.loadBalancers.values()) {
+      for (const lb of lbs.values()) {
+        const index = lb.sockets.indexOf(socket);
         if (index > -1) {
-          sockets.splice(index, 1);
+          lb.sockets.splice(index, 1);
         }
       }
     }

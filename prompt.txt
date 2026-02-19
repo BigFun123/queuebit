@@ -1,9 +1,0 @@
-This is an NPM package that uses javascript.
-Do not use typescript.
-It is a socket server API for using a queue.
-It uses a socket to add messages to the queue and guarantees delivery to any listeners. 
-Messages are always JSON objects, they can have an expiry datetime parameter, 
-or be set to be removed from the queue after the first read.
-The queue should be compatible with NATS queue.
-
-

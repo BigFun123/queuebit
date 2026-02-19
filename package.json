@@ -1,6 +1,6 @@
 {
   "name": "@usermetrics/queuebit",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publishConfig": {
     "access": "public"
   },
@@ -9,8 +9,9 @@
   "browser": "src/client-browser.js",
   "scripts": {
     "test": "node test/test-harness.js",
-    "start": "node src/index.js",
+    "start": "node src/server-runner.js",
     "server": "node src/server-runner.js",
+    "auto": "nodemon src/server-runner.js",
     "prepublishOnly": "npm test"
   },
   "keywords": [

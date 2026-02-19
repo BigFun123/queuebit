@@ -1,15 +1,16 @@
 # QueueBit
 
-A high performance socket-based message queue server with guaranteed delivery, compatible with NATS queue patterns.
+A high performance socket-based message queue server with guaranteed delivery, compatible with NATS queue patterns.  
+Built in Load Balancer. (see examples).  
 
-It can run in-process in an existing nodejs app, separately as a nodejs server, and has clients 
-for the backend and frontend.
+It can run in-process in an existing nodejs app, separately as a nodejs server, or run clients 
+in the backend and/or frontend.
 
 ## Features
 
 - WebSocket-based message queue
 - Subject-based message routing
-- Queue groups for load-balanced message delivery
+- Load-balancer
 - Message expiry support
 - Remove after read (ephemeral messages)
 - Guaranteed delivery to all subscribers
@@ -82,7 +83,8 @@ Include Socket.IO and QueueBit client in your HTML:
 </script>
 ```
 
-See `examples/browser-example.html` for a complete browser example.
+See `examples/qpanel.html` for a complete browser example.
+Open it with Live Server in vscode to test.
 
 ### Server
 
@@ -185,89 +187,6 @@ Unsubscribe from messages.
 ##### `disconnect()`
 Disconnect from the server.
 
-## Publishing to NPM
-
-### First Time Setup
-
-1. Create an NPM account at https://www.npmjs.com/signup
-2. Run authentication setup:
-   ```cmd
-   setup-npm-auth.cmd
-   ```
-3. Update package.json with your username:
-   - Change `@yourusername/queuebit` to `@YOUR_NPM_USERNAME/queuebit`
-   - Or use an unscoped name like `queuebit-yourname` if available
-   - Update author field with your information
-
-### Publishing
-
-1. Update version number:
-   ```cmd
-   update-version.cmd
-   ```
-
-2. **Without 2FA:**
-   ```cmd
-   publish.cmd
-   ```
-
-3. **With 2FA enabled:**
-   ```cmd
-   publish-with-otp.cmd
-   ```
-
-### Troubleshooting
-
-- **403 Forbidden / 2FA Required**: Use `publish-with-otp.cmd`
-- **Package name taken**: Change name in package.json to something unique
-- **Not logged in**: Run `npm login` or `setup-npm-auth.cmd`
-- **Version already exists**: Increment version with `update-version.cmd`
-
-## Development
-
-### Install Dependencies
-```bash
-npm install
-```
-Or on Windows:
-```cmd
-install-deps.cmd
-```
-
-### Run Tests
-```bash
-npm test
-```
-
-### Publishing
-
-#### Update Version
-```cmd
-update-version.cmd
-```
-
-#### Dry Run (test without publishing)
-```cmd
-publish-dry-run.cmd
-```
-
-#### Publish to NPM
-```cmd
-publish.cmd
-```
-
-Or manually:
-```bash
-npm login
-npm test
-npm publish
-```
-
-## Testing
-
-```bash
-npm test
-```
 
 ## License
 

@@ -124,7 +124,7 @@
             <h2>Subscribe</h2>
             <input type="text" id="subscribeSubject" placeholder="Subject" class="small">
             <button onclick="subscribe()">Subscribe</button>
-            <button onclick="subscribeQueue()">Queue Group</button>
+            <button onclick="subscribeQueue()">Add Load Balancer</button>
         </div>
 
         <div class="col container">
@@ -162,6 +162,7 @@
         let lastUpdateTime = 0;
         let publishEndTime = 0;
         let isConnected = false;
+        let lbSubscriptionCount = 0; // track how many LB subscriptions added
 
         function connect() {
             const url = document.getElementById('serverUrl').value;
@@ -194,6 +195,7 @@
                 client.disconnect();
                 client = null;
                 isConnected = false;
+                lbSubscriptionCount = 0;
                 document.getElementById('status').textContent = 'Disconnected';
                 document.getElementById('status').style.color = 'black';
                 document.getElementById('serverVersion').textContent = '';
@@ -270,14 +272,25 @@
             }
 
             const subject = document.getElementById('subscribeSubject').value || 'default';
+            lbSubscriptionCount++;
+            const workerNum = lbSubscriptionCount;
+            const uniqueQueueName = `browser-worker-${workerNum}`; // unique name per worker
             
-            await client.subscribe((message) => {
+            const response = await client.subscribe((message) => {
                 if (!perfTestRunning) {
-                    addMessage(`[Queue: ${subject}] ${JSON.stringify(message.data)}`);
+                    console.log('LB message received:', JSON.stringify({ 
+                        queueName: message.queueName, 
+                        loadBalancerId: message.loadBalancerId,
+                        subject: message.subject
+                    }));
+                    const lbId = message.loadBalancerId !== undefined ? ` LB#${message.loadBalancerId}` : '';
+                    addMessage(`[Worker #${workerNum}${lbId}: ${subject}] ${JSON.stringify(message.data)}`);
                 }
-            }, { subject, queue: 'browser-workers' });
+            }, { subject, queue: uniqueQueueName });
 
-            console.log('Subscribed to queue group:', subject);
+            const lbId = response?.loadBalancerId !== undefined ? ` (LB#${response.loadBalancerId})` : '';
+            addMessage(`✓ Load Balancer Worker #${workerNum}${lbId} added for subject "${subject}"`);
+            console.log(`Worker #${workerNum} subscribed to load balancer: ${subject} (queue: ${uniqueQueueName})`);
         }
 
         function addMessage(text, isPerf = false) {
@@ -350,12 +363,6 @@
             const totalMessages = parseInt(document.getElementById('testMessageCount').value);
             console.log('totalMessages:', totalMessages);
             
-            const confirmed = confirm(`This will send ${totalMessages.toLocaleString()} messages to the queue. Continue?`);
-            if (!confirmed) {
-                console.log('Test cancelled by user');
-                return;
-            }
-
             console.log('Starting performance test...');
             perfTestRunning = true;
             receivedCount = 0;

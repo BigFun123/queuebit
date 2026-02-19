@@ -1,7 +1,8 @@
-const { QueueBitServer, QueueBitClient } = require('../src/index');
+const { QueueBitServer } = require('../src/server');
+const { QueueBitClient } = require('../src/client-node');
 
 // Start server
-const server = new QueueBitServer({ port: 3000 });
+const server = new QueueBitServer({ port: 3333 });
 
 // Wait for server to start
 setTimeout(async () => {
@@ -9,7 +10,7 @@ setTimeout(async () => {
   
   // Test 0: Basic connectivity
   console.log('Test 0: Basic connectivity and publish');
-  const testClient = new QueueBitClient('http://localhost:3000');
+  const testClient = new QueueBitClient('http://localhost:3333');
   
   await new Promise(resolve => setTimeout(resolve, 1000));
   
@@ -31,7 +32,7 @@ setTimeout(async () => {
   
   // Test 1: Basic publish/subscribe
   console.log('Test 1: Basic publish/subscribe');
-  const client1 = new QueueBitClient('http://localhost:3000');
+  const client1 = new QueueBitClient('http://localhost:3333');
   
   await new Promise(resolve => setTimeout(resolve, 500));
   
@@ -43,7 +44,7 @@ setTimeout(async () => {
   
   // Test 2: Multiple subscribers
   console.log('\nTest 2: Multiple subscribers (all receive)');
-  const client2 = new QueueBitClient('http://localhost:3000');
+  const client2 = new QueueBitClient('http://localhost:3333');
   
   await new Promise(resolve => setTimeout(resolve, 500));
   
@@ -55,7 +56,7 @@ setTimeout(async () => {
   
   // Test 3: Subject-based routing
   console.log('\nTest 3: Subject-based routing');
-  const client3 = new QueueBitClient('http://localhost:3000');
+  const client3 = new QueueBitClient('http://localhost:3333');
   
   await new Promise(resolve => setTimeout(resolve, 500));
   
@@ -66,10 +67,10 @@ setTimeout(async () => {
   await client1.publish({ orderId: 123 }, { subject: 'orders' });
   await client1.publish({ text: 'Default subject message' });
   
-  // Test 4: Queue groups (load balanced)
-  console.log('\nTest 4: Queue groups (load balanced delivery)');
-  const client4 = new QueueBitClient('http://localhost:3000');
-  const client5 = new QueueBitClient('http://localhost:3000');
+  // Test 4: Load balancer (round-robin delivery)
+  console.log('\nTest 4: Load balancer (round-robin delivery)');
+  const client4 = new QueueBitClient('http://localhost:3333');
+  const client5 = new QueueBitClient('http://localhost:3333');
   
   await new Promise(resolve => setTimeout(resolve, 500));
   
@@ -81,7 +82,6 @@ setTimeout(async () => {
     console.log('Worker 2 received:', message.data);
   }, { subject: 'tasks', queue: 'workers' });
   
-  // Publish multiple messages - should be distributed
   for (let i = 1; i <= 4; i++) {
     await client1.publish({ task: `Task ${i}` }, { subject: 'tasks' });
   }
@@ -90,7 +90,7 @@ setTimeout(async () => {
   console.log('\nTest 5: Remove after read');
   await new Promise(resolve => setTimeout(resolve, 1000));
   
-  const client6 = new QueueBitClient('http://localhost:3000');
+  const client6 = new QueueBitClient('http://localhost:3333');
   await new Promise(resolve => setTimeout(resolve, 500));
   
   await client1.publish({ text: 'One-time message' }, { 
