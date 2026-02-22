@@ -1,10 +1,10 @@
 {
   "name": "@usermetrics/queuebit",
-  "version": "1.0.1",
+  "version": "1.0.4",
   "publishConfig": {
     "access": "public"
   },
-  "description": "A socket server API for using a queue with guaranteed delivery",
+  "description": "A high performance queue with guaranteed delivery and built-in load balancer. Runs in-process or as a standalone server. Supports browser clients.",
   "main": "src/index.js",
   "browser": "src/client-browser.js",
   "scripts": {
@@ -27,10 +27,10 @@
   "license": "MIT",
   "dependencies": {
     "socket.io": "^4.7.2",
+    "socket.io-client": "^4.7.2",
     "uuid": "^9.0.1"
   },
-  "devDependencies": {
-    "socket.io-client": "^4.7.2"
+  "devDependencies": {    
   },
   "files": [
     "src/",

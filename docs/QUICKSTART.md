@@ -2,121 +2,120 @@
 
 Get started with QueueBit in 5 minutes!
 
-## Installation
-
-```bash
-npm install queuebit
-```
-
 ## Start the Server
 
 ```javascript
 // server.js
-const { QueueBitServer } = require('queuebit');
+const { QueueBitServer } = require('./src/server');
 
-const server = new QueueBitServer({ port: 3000 });
-console.log('QueueBit server running on port 3000');
+const server = new QueueBitServer({ port: 3333 });
+// Starts listening immediately
 ```
-
-Run it:
 
 ```bash
 node server.js
 ```
 
-## Publisher Example
+## Publisher
 
 ```javascript
-// publisher.js
-const { QueueBitClient } = require('queuebit');
+const { QueueBitClient } = require('./src/client-node');
 
-const client = new QueueBitClient('http://localhost:3000');
+const client = new QueueBitClient('http://localhost:3333');
 
-// Wait for connection
 setTimeout(async () => {
-  // Publish a message
-  await client.publish({ 
-    message: 'Hello, QueueBit!',
-    timestamp: new Date()
-  });
-  
+  await client.publish({ message: 'Hello, QueueBit!', timestamp: new Date() });
   console.log('Message published!');
 }, 1000);
 ```
 
-## Subscriber Example
+## Subscriber
 
 ```javascript
-// subscriber.js
-const { QueueBitClient } = require('queuebit');
+const { QueueBitClient } = require('./src/client-node');
 
-const client = new QueueBitClient('http://localhost:3000');
+const client = new QueueBitClient('http://localhost:3333');
 
-// Subscribe to messages
 client.subscribe((message) => {
   console.log('Received:', message.data);
 });
-
-console.log('Waiting for messages...');
 ```
 
-## Run the Examples
+## In-Process (Server + Client Together)
 
-Open three terminals:
+```javascript
+const { QueueBitServer } = require('./src/server');
+const { QueueBitClient } = require('./src/client-node');
 
-```bash
-# Terminal 1: Start server
-node server.js
+const server = new QueueBitServer({ port: 3333 });
+const client = new QueueBitClient('http://localhost:3333');
 
-# Terminal 2: Start subscriber
-node subscriber.js
-
-# Terminal 3: Publish messages
-node publisher.js
+setTimeout(async () => {
+  await client.subscribe((msg) => console.log('Got:', msg.data));
+  await client.publish({ hello: 'world' });
+}, 500);
 ```
 
-## Next Steps
-
-- Read the [API Documentation](./API.md)
-- Check out [Examples](./EXAMPLES.md)
-- See the [browser example](../examples/browser-example.html)
+See [`examples/inprocessserver.js`](../examples/inprocessserver.js) for a full example.
 
 ## Common Patterns
 
-### Work Queue
+### Regular Subscription (all subscribers receive every message)
 
 ```javascript
-// Multiple workers process tasks in parallel
-await worker.subscribe((message) => {
-  processTask(message.data);
-}, { subject: 'tasks', queue: 'workers' });
-```
-
-### Pub/Sub
-
-```javascript
-// All subscribers receive every message
-await subscriber.subscribe((message) => {
-  handleEvent(message.data);
+await client.subscribe((message) => {
+  console.log('Event:', message.data);
 }, { subject: 'events' });
 ```
 
-### Request/Response
+### Load Balancer (round-robin, one subscriber per message)
 
 ```javascript
-// Send request and wait for response
-const requestId = generateId();
+// Each worker gets a unique queue name → unique LB ID
+await worker1.subscribe((msg) => {
+  console.log(`LB#${msg.loadBalancerId}:`, msg.data);
+}, { subject: 'tasks', queue: 'worker-1' });
 
-await client.subscribe((msg) => {
-  if (msg.data.requestId === requestId) {
-    console.log('Response:', msg.data);
-  }
-}, { subject: 'responses' });
+await worker2.subscribe((msg) => {
+  console.log(`LB#${msg.loadBalancerId}:`, msg.data);
+}, { subject: 'tasks', queue: 'worker-2' });
+```
 
+### Ephemeral Messages (removed after first read)
+
+```javascript
 await client.publish(
-  { requestId, data: 'request' },
-  { subject: 'requests' }
+  { notification: 'One-time alert' },
+  { removeAfterRead: true, subject: 'alerts' }
 );
 ```
 
-Happy queuing! 🚀
+### Message Expiry
+
+```javascript
+await client.publish(
+  { code: 'ABC123' },
+  { expiry: new Date(Date.now() + 300000) } // expires in 5 minutes
+);
+```
+
+## Browser
+
+```html
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="src/client-browser.js"></script>
+<script>
+  const client = new QueueBitClient('http://localhost:3333');
+  client.subscribe((msg) => console.log(msg.data));
+  client.publish({ text: 'Hello!' });
+</script>
+```
+
+Open [`examples/qpanel.html`](../examples/qpanel.html) for the browser dashboard.
+
+## Next Steps
+
+- [API Documentation](./API.md) - Full API reference
+- [Examples](./EXAMPLES.md) - More use case examples
+- [`examples/`](../examples/) folder - Runnable examples
+- [`test/test-harness.js`](../test/test-harness.js) - Run all tests

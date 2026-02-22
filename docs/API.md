@@ -7,6 +7,7 @@ QueueBit is a high-performance, socket-based message queue system with guarantee
 - [Server API](#server-api)
 - [Client API](#client-api)
 - [Message Format](#message-format)
+- [Load Balancer](#load-balancer)
 - [Examples](#examples)
 
 ---
@@ -15,15 +16,8 @@ QueueBit is a high-performance, socket-based message queue system with guarantee
 
 ### QueueBitServer
 
-The server class that handles message queuing and delivery.
-
-#### Constructor
-
-Creates a new QueueBit server instance.
-
 ```javascript
-const { QueueBitServer } = require('queuebit');
-
+const { QueueBitServer } = require('queuebit/src/server');
 const server = new QueueBitServer(options);
 ```
 
@@ -38,7 +32,7 @@ const server = new QueueBitServer(options);
 
 ```javascript
 const server = new QueueBitServer({ 
-  port: 3000,
+  port: 3333,
   maxQueueSize: 50000 
 });
 ```
@@ -51,64 +45,34 @@ Shuts down the server and closes all connections.
 server.close();
 ```
 
-**Example:**
-
-```javascript
-// Graceful shutdown
-process.on('SIGINT', () => {
-  console.log('Shutting down...');
-  server.close();
-  process.exit(0);
-});
-```
-
 ---
 
 ## Client API
 
 ### QueueBitClient
 
-The client class for connecting to a QueueBit server.
-
-#### Constructor
-
-Creates a new client connection to the server.
-
 ```javascript
-const { QueueBitClient } = require('queuebit');
+// Node.js
+const { QueueBitClient } = require('queuebit/src/client-node');
+const client = new QueueBitClient('http://localhost:3333');
 
-const client = new QueueBitClient(url);
+// Browser - include socket.io first
+// <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+// <script src="src/client-browser.js"></script>
+const client = new QueueBitClient('http://localhost:3333');
 ```
 
 **Parameters:**
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `url` | string | 'http://localhost:3000' | Server URL |
-
-**Example:**
-
-```javascript
-// Node.js
-const { QueueBitClient } = require('queuebit');
-const client = new QueueBitClient('http://localhost:3000');
-
-// Browser
-const client = new QueueBitClient('http://localhost:3000');
-```
+| `url` | string | 'http://localhost:3333' | Server URL |
 
 ---
 
 ### publish(message, options)
 
 Publishes a message to the queue.
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `message` | object | Yes | The message data (must be a JSON object) |
-| `options` | object | No | Publishing options |
 
 **Options:**
 
@@ -118,37 +82,22 @@ Publishes a message to the queue.
 | `expiry` | Date | Expiration date for the message |
 | `removeAfterRead` | boolean | Remove message after first delivery (default: false) |
 
-**Returns:** Promise<{ success: boolean, messageId?: string, error?: string }>
-
-**Examples:**
+**Returns:** `Promise<{ success: boolean, messageId?: string, error?: string }>`
 
 ```javascript
 // Basic publish
-const result = await client.publish({ 
-  text: 'Hello, World!' 
-});
-console.log(result); // { success: true, messageId: 'uuid-here' }
+await client.publish({ text: 'Hello, World!' });
 
-// Publish to specific subject
-await client.publish(
-  { orderId: 12345, status: 'pending' },
-  { subject: 'orders' }
-);
+// Publish to subject
+await client.publish({ orderId: 123 }, { subject: 'orders' });
 
-// Ephemeral message (removed after first read)
-await client.publish(
-  { notification: 'System update' },
-  { removeAfterRead: true }
-);
+// Ephemeral (removed after first read)
+await client.publish({ code: 'ABC' }, { removeAfterRead: true });
 
-// Message with expiry (expires in 1 hour)
-const expiryDate = new Date(Date.now() + 3600000);
+// With expiry
 await client.publish(
-  { tempData: 'expires soon' },
-  { 
-    subject: 'temp',
-    expiry: expiryDate 
-  }
+  { data: 'temp' },
+  { expiry: new Date(Date.now() + 3600000) }
 );
 ```
 
@@ -156,69 +105,30 @@ await client.publish(
 
 ### subscribe(callback, options)
 
-Subscribes to messages from the queue.
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `callback` | function | Yes | Function called when message is received |
-| `options` | object | No | Subscription options |
+Subscribes to messages. All existing non-ephemeral messages are replayed to new regular subscribers.
 
 **Options:**
 
 | Option | Type | Description |
 |--------|------|-------------|
 | `subject` | string | Subscribe to specific subject (default: 'default') |
-| `queue` | string | Join a queue group for load-balanced delivery |
+| `queue` | string | Join a load balancer group for round-robin delivery |
 
-**Callback Signature:**
-
-```javascript
-(message: QueueMessage) => void
-```
-
-**Returns:** Promise<{ success: boolean, subject?: string, queue?: string }>
-
-**Examples:**
+**Returns:** `Promise<{ success: boolean, subject: string, loadBalancer?: string, loadBalancerId?: number }>`
 
 ```javascript
-// Basic subscription
+// Regular subscription (all subscribers receive every message)
 await client.subscribe((message) => {
   console.log('Received:', message.data);
-});
+}, { subject: 'events' });
 
-// Subscribe to specific subject
-await client.subscribe(
-  (message) => {
-    console.log('Order received:', message.data);
-  },
-  { subject: 'orders' }
-);
-
-// Queue group (load-balanced across multiple subscribers)
-await client.subscribe(
-  (message) => {
-    console.log('Processing task:', message.data);
-    // Only one subscriber in the group receives this message
-  },
-  { 
-    subject: 'tasks',
-    queue: 'workers' 
-  }
-);
-
-// Multiple subjects
-await client.subscribe(
-  (message) => console.log('High priority:', message.data),
-  { subject: 'priority.high' }
-);
-
-await client.subscribe(
-  (message) => console.log('Low priority:', message.data),
-  { subject: 'priority.low' }
-);
+// Load balancer (only one subscriber receives each message, round-robin)
+await client.subscribe((message) => {
+  console.log('Processing:', message.data);
+}, { subject: 'tasks', queue: 'my-workers' });
 ```
+
+> **Note:** Load balancer subscriptions do **not** receive existing messages on subscribe, only new ones.
 
 ---
 
@@ -226,87 +136,41 @@ await client.subscribe(
 
 Unsubscribes from messages.
 
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `options` | object | No | Unsubscription options |
-
 **Options:**
 
 | Option | Type | Description |
 |--------|------|-------------|
 | `subject` | string | Subject to unsubscribe from (default: 'default') |
-| `queue` | string | Queue group to leave |
+| `queue` | string | Load balancer group to leave |
 
-**Returns:** Promise<{ success: boolean }>
-
-**Examples:**
+**Returns:** `Promise<{ success: boolean }>`
 
 ```javascript
-// Unsubscribe from default subject
-await client.unsubscribe();
-
-// Unsubscribe from specific subject
 await client.unsubscribe({ subject: 'orders' });
-
-// Leave queue group
-await client.unsubscribe({ 
-  subject: 'tasks',
-  queue: 'workers' 
-});
+await client.unsubscribe({ subject: 'tasks', queue: 'my-workers' });
 ```
 
 ---
 
 ### getMessages(options)
 
-Retrieves all messages currently in the queue for a subject.
+Retrieves all messages currently stored for a subject.
 
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `options` | object | No | Query options |
-
-**Options:**
-
-| Option | Type | Description |
-|--------|------|-------------|
-| `subject` | string | Subject to query (default: 'default') |
-
-**Returns:** Promise<{ success: boolean, messages: QueueMessage[], count: number }>
-
-**Examples:**
+**Returns:** `Promise<{ success: boolean, messages: QueueMessage[], count: number }>`
 
 ```javascript
-// Get all messages from default subject
-const result = await client.getMessages();
-console.log(`Found ${result.count} messages`);
-result.messages.forEach(msg => {
-  console.log(msg.data);
-});
-
-// Get messages from specific subject
-const orders = await client.getMessages({ subject: 'orders' });
-console.log(`${orders.count} pending orders`);
+const result = await client.getMessages({ subject: 'orders' });
+console.log(`${result.count} messages`);
+result.messages.forEach(msg => console.log(msg.data));
 ```
 
 ---
 
 ### disconnect()
 
-Disconnects from the server.
+Disconnects the client from the server.
 
 ```javascript
-client.disconnect();
-```
-
-**Example:**
-
-```javascript
-// Clean disconnect
-await client.unsubscribe();
 client.disconnect();
 ```
 
@@ -314,32 +178,45 @@ client.disconnect();
 
 ## Message Format
 
-### QueueMessage
-
-Every message in QueueBit has the following structure:
-
 ```typescript
 {
-  id: string,              // Unique message identifier (UUID)
+  id: string,              // Unique UUID
   data: object,            // Your message payload
   subject: string,         // Message subject/topic
-  timestamp: Date,         // When message was published
-  expiry?: Date,           // Optional expiration date
-  removeAfterRead: boolean // Whether to remove after first read
+  timestamp: Date,         // When published
+  expiry?: Date,           // Optional expiration
+  removeAfterRead: boolean,// Ephemeral flag
+  loadBalancerId?: number, // Set when delivered via load balancer
+  queueName?: string       // Load balancer group name (internal routing)
 }
 ```
 
-**Example:**
+---
+
+## Load Balancer
+
+Load balancers provide round-robin delivery across multiple subscribers. Each message is delivered to exactly one subscriber.
+
+- Each call to `subscribe` with a unique `queue` name creates a new load balancer with a unique numeric ID
+- Messages are distributed round-robin across all registered load balancers for a subject
+- Load balancer messages are **consumed** (not stored) after delivery
+- The `loadBalancerId` is included in delivered messages for identification
 
 ```javascript
-{
-  id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-  data: { orderId: 12345, amount: 99.99 },
-  subject: 'orders',
-  timestamp: '2024-01-15T10:30:00.000Z',
-  expiry: null,
-  removeAfterRead: false
-}
+// Worker 1 - gets its own load balancer (e.g. LB#1)
+await worker1.subscribe((msg) => {
+  console.log(`LB#${msg.loadBalancerId} got:`, msg.data);
+}, { subject: 'jobs', queue: 'worker-1' });
+
+// Worker 2 - gets its own load balancer (e.g. LB#2)
+await worker2.subscribe((msg) => {
+  console.log(`LB#${msg.loadBalancerId} got:`, msg.data);
+}, { subject: 'jobs', queue: 'worker-2' });
+
+// Messages alternate: LB#1, LB#2, LB#1, LB#2, ...
+await publisher.publish({ job: 1 }, { subject: 'jobs' }); // → LB#1
+await publisher.publish({ job: 2 }, { subject: 'jobs' }); // → LB#2
+await publisher.publish({ job: 3 }, { subject: 'jobs' }); // → LB#1
 ```
 
 ---
@@ -349,158 +226,76 @@ Every message in QueueBit has the following structure:
 ### Basic Pub/Sub
 
 ```javascript
-const { QueueBitServer, QueueBitClient } = require('queuebit');
+const { QueueBitServer } = require('./src/server');
+const { QueueBitClient } = require('./src/client-node');
 
-// Start server
-const server = new QueueBitServer({ port: 3000 });
+const server = new QueueBitServer({ port: 3333 });
+const publisher = new QueueBitClient('http://localhost:3333');
+const subscriber = new QueueBitClient('http://localhost:3333');
 
-// Create clients
-const publisher = new QueueBitClient('http://localhost:3000');
-const subscriber = new QueueBitClient('http://localhost:3000');
-
-// Subscribe
 await subscriber.subscribe((message) => {
   console.log('Received:', message.data);
 });
 
-// Publish
 await publisher.publish({ text: 'Hello, World!' });
 ```
 
-### Request-Response Pattern
+### In-Process Server
 
 ```javascript
-// Responder
-await responder.subscribe(async (message) => {
-  const { requestId, question } = message.data;
-  
-  // Process request
-  const answer = processQuestion(question);
-  
-  // Send response
-  await responder.publish(
-    { requestId, answer },
-    { subject: 'responses' }
-  );
-}, { subject: 'requests' });
+const { QueueBitServer } = require('./src/server');
+const { QueueBitClient } = require('./src/client-node');
 
-// Requester
-const requestId = generateId();
+// Start server and client in the same process
+const server = new QueueBitServer({ port: 3333 });
+const client = new QueueBitClient('http://localhost:3333');
 
-// Listen for response
-await requester.subscribe((message) => {
-  if (message.data.requestId === requestId) {
-    console.log('Answer:', message.data.answer);
-  }
-}, { subject: 'responses' });
+await client.subscribe((msg) => {
+  console.log('Got:', msg.data);
+});
 
-// Send request
-await requester.publish(
-  { requestId, question: 'What is 2+2?' },
-  { subject: 'requests' }
-);
+await client.publish({ hello: 'world' });
 ```
 
-### Work Queue Pattern
+### Work Queue
 
 ```javascript
 // Producer
-for (let i = 0; i < 100; i++) {
-  await producer.publish(
-    { taskId: i, work: `Task ${i}` },
-    { subject: 'tasks' }
-  );
+for (let i = 0; i < 10; i++) {
+  await producer.publish({ taskId: i }, { subject: 'tasks' });
 }
 
 // Worker 1
-await worker1.subscribe((message) => {
-  console.log('Worker 1 processing:', message.data.taskId);
-}, { subject: 'tasks', queue: 'workers' });
+await worker1.subscribe((msg) => {
+  console.log('Worker 1:', msg.data.taskId);
+}, { subject: 'tasks', queue: 'worker-1' });
 
 // Worker 2
-await worker2.subscribe((message) => {
-  console.log('Worker 2 processing:', message.data.taskId);
-}, { subject: 'tasks', queue: 'workers' });
-
-// Tasks are distributed between Worker 1 and Worker 2
-```
-
-### Expiring Messages
-
-```javascript
-// Publish message that expires in 5 minutes
-const expiryDate = new Date(Date.now() + 300000);
-
-await client.publish(
-  { 
-    code: 'ABC123',
-    description: 'Temporary access code' 
-  },
-  { 
-    subject: 'temp-codes',
-    expiry: expiryDate 
-  }
-);
-
-// Message is automatically removed after expiry
-```
-
-### One-Time Notifications
-
-```javascript
-// Publisher sends ephemeral notification
-await publisher.publish(
-  { alert: 'Server restarting in 5 minutes' },
-  { 
-    subject: 'alerts',
-    removeAfterRead: true 
-  }
-);
-
-// First subscriber gets the message
-await subscriber1.subscribe((message) => {
-  console.log('Alert:', message.data.alert); // Receives message
-}, { subject: 'alerts' });
-
-// Second subscriber connects later
-await subscriber2.subscribe((message) => {
-  console.log('Alert:', message.data.alert); // Won't receive it
-}, { subject: 'alerts' });
-```
-
-### Multi-Topic Subscription
-
-```javascript
-const client = new QueueBitClient('http://localhost:3000');
-
-// Subscribe to multiple topics
-await client.subscribe((msg) => {
-  console.log('User event:', msg.data);
-}, { subject: 'users' });
-
-await client.subscribe((msg) => {
-  console.log('Order event:', msg.data);
-}, { subject: 'orders' });
-
-await client.subscribe((msg) => {
-  console.log('Payment event:', msg.data);
-}, { subject: 'payments' });
-
-// Publish to different topics
-await client.publish({ action: 'login' }, { subject: 'users' });
-await client.publish({ orderId: 123 }, { subject: 'orders' });
-await client.publish({ amount: 50 }, { subject: 'payments' });
+await worker2.subscribe((msg) => {
+  console.log('Worker 2:', msg.data.taskId);
+}, { subject: 'tasks', queue: 'worker-2' });
+// Tasks alternate between workers
 ```
 
 ---
 
-## Performance Tips
+## Browser Usage
 
-1. **Use subjects** for routing instead of filtering in callbacks
-2. **Queue groups** for load balancing across multiple consumers
-3. **Batch publishing** when sending many messages
-4. **Remove old messages** using expiry to prevent memory issues
-5. **WebSocket transport** is faster than long-polling (default)
+```html
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="src/client-browser.js"></script>
+<script>
+  const client = new QueueBitClient('http://localhost:3333');
+  
+  client.subscribe((message) => {
+    console.log('Received:', message.data);
+  }, { subject: 'events' });
+  
+  client.publish({ text: 'Hello from browser!' }, { subject: 'events' });
+</script>
+```
+
+See [`examples/qpanel.html`](../examples/qpanel.html) for a full browser dashboard with publish, subscribe, load balancer, and performance testing.
 
 ---
 
@@ -513,65 +308,10 @@ try {
     console.error('Publish failed:', result.error);
   }
 } catch (error) {
-  console.error('Connection error:', error);
+  // Thrown on timeout (5 second default)
+  console.error('Publish error:', error.message);
 }
 
-// Handle disconnection
-client.socket.on('disconnect', () => {
-  console.log('Disconnected from server');
-  // Implement reconnection logic
-});
-
-client.socket.on('connect_error', (error) => {
-  console.error('Connection error:', error);
-});
+client.socket.on('disconnect', () => console.log('Disconnected'));
+client.socket.on('connect_error', (err) => console.error('Connection error:', err));
 ```
-
----
-
-## Browser Usage
-
-Include Socket.IO and QueueBit client in your HTML:
-
-```html
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script src="node_modules/queuebit/src/client-browser.js"></script>
-
-<script>
-  const client = new QueueBitClient('http://localhost:3000');
-  
-  client.subscribe((message) => {
-    console.log('Received:', message.data);
-  });
-  
-  client.publish({ text: 'Hello from browser!' });
-</script>
-```
-
----
-
-## NATS Compatibility
-
-QueueBit implements NATS-like patterns:
-
-- **Subjects**: Topic-based routing
-- **Queue Groups**: Load-balanced delivery
-- **At-least-once delivery**: Messages persisted until delivered
-- **Wildcards**: Not currently supported (planned)
-
----
-
-## Best Practices
-
-1. **Use meaningful subject names**: `orders.created`, `users.login`, etc.
-2. **Set appropriate expiry times** for temporary data
-3. **Clean up subscriptions** when no longer needed
-4. **Monitor queue sizes** to prevent memory issues
-5. **Use queue groups** for scalable message processing
-6. **Handle reconnection** in production applications
-
----
-
-## License
-
-MIT License - See LICENSE file for details

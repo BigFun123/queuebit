@@ -4,164 +4,120 @@ Practical examples for common use cases.
 
 ## Table of Contents
 
+- [Runnable Examples](#runnable-examples)
 - [Chat Application](#chat-application)
-- [Task Queue System](#task-queue-system)
+- [Task Queue with Load Balancer](#task-queue-with-load-balancer)
 - [Real-time Analytics](#real-time-analytics)
 - [Microservices Communication](#microservices-communication)
 - [Event Sourcing](#event-sourcing)
 
 ---
 
+## Runnable Examples
+
+| File | Description |
+|------|-------------|
+| [`examples/server2server.js`](../examples/server2server.js) | HTTP server using an external QueueBit server |
+| [`examples/inprocessserver.js`](../examples/inprocessserver.js) | HTTP server with QueueBit running in-process |
+| [`examples/queuegroup.js`](../examples/queuegroup.js) | Load balancer demo with 3 workers |
+| [`examples/qpanel.html`](../examples/qpanel.html) | Browser dashboard with publish, subscribe, load balancer, and perf testing |
+| [`test/test-harness.js`](../test/test-harness.js) | Full test suite |
+
+---
+
 ## Chat Application
 
-Simple chat room using QueueBit.
-
 ```javascript
-const { QueueBitServer, QueueBitClient } = require('queuebit');
+const { QueueBitServer } = require('./src/server');
+const { QueueBitClient } = require('./src/client-node');
 
-// Server
-const server = new QueueBitServer({ port: 3000 });
-
-// Client
+const server = new QueueBitServer({ port: 3333 });
 const username = process.argv[2] || 'Anonymous';
-const client = new QueueBitClient('http://localhost:3000');
+const client = new QueueBitClient('http://localhost:3333');
 
-// Receive messages
 await client.subscribe((message) => {
   const { user, text, timestamp } = message.data;
-  const time = new Date(timestamp).toLocaleTimeString();
-  console.log(`[${time}] ${user}: ${text}`);
+  console.log(`[${new Date(timestamp).toLocaleTimeString()}] ${user}: ${text}`);
 }, { subject: 'chat' });
 
-// Send messages
 const readline = require('readline');
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
 rl.on('line', async (text) => {
-  await client.publish(
-    { user: username, text, timestamp: new Date() },
-    { subject: 'chat' }
-  );
+  await client.publish({ user: username, text, timestamp: new Date() }, { subject: 'chat' });
 });
-
-console.log(`Joined chat as ${username}`);
 ```
 
 ---
 
-## Task Queue System
+## Task Queue with Load Balancer
 
-Distribute tasks across multiple workers.
+Messages are distributed round-robin — each message goes to exactly one worker.
 
 ```javascript
-// producer.js
-const { QueueBitClient } = require('queuebit');
-const client = new QueueBitClient('http://localhost:3000');
+const { QueueBitServer } = require('./src/server');
+const { QueueBitClient } = require('./src/client-node');
 
-async function produceTasks() {
-  for (let i = 1; i <= 100; i++) {
-    await client.publish(
-      {
-        taskId: i,
-        type: 'process-image',
-        imageUrl: `https://example.com/img${i}.jpg`,
-        priority: i % 10 === 0 ? 'high' : 'normal'
-      },
-      { subject: 'tasks' }
-    );
-    console.log(`Task ${i} queued`);
-  }
+const server = new QueueBitServer({ port: 3333 });
+
+async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+await sleep(500);
+
+const worker1 = new QueueBitClient('http://localhost:3333');
+const worker2 = new QueueBitClient('http://localhost:3333');
+const worker3 = new QueueBitClient('http://localhost:3333');
+
+await sleep(500);
+
+// Each worker has a unique queue name → unique load balancer ID
+await worker1.subscribe((msg) => {
+  console.log(`LB#${msg.loadBalancerId} Worker1:`, msg.data);
+}, { subject: 'tasks', queue: 'worker-1' });
+
+await worker2.subscribe((msg) => {
+  console.log(`LB#${msg.loadBalancerId} Worker2:`, msg.data);
+}, { subject: 'tasks', queue: 'worker-2' });
+
+await worker3.subscribe((msg) => {
+  console.log(`LB#${msg.loadBalancerId} Worker3:`, msg.data);
+}, { subject: 'tasks', queue: 'worker-3' });
+
+const publisher = new QueueBitClient('http://localhost:3333');
+await sleep(500);
+
+// Messages cycle: LB#1 → LB#2 → LB#3 → LB#1 → ...
+for (let i = 1; i <= 9; i++) {
+  await publisher.publish({ taskId: i }, { subject: 'tasks' });
+  await sleep(100);
 }
-
-produceTasks();
-
-// worker.js
-const { QueueBitClient } = require('queuebit');
-const workerId = process.argv[2] || '1';
-const client = new QueueBitClient('http://localhost:3000');
-
-await client.subscribe(async (message) => {
-  const { taskId, type, imageUrl, priority } = message.data;
-  
-  console.log(`Worker ${workerId} processing task ${taskId} (${priority})`);
-  
-  // Simulate work
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // Publish result
-  await client.publish(
-    { taskId, workerId, status: 'completed', timestamp: new Date() },
-    { subject: 'results' }
-  );
-  
-  console.log(`Worker ${workerId} completed task ${taskId}`);
-}, { subject: 'tasks', queue: 'workers' });
-
-console.log(`Worker ${workerId} ready`);
 ```
+
+See [`examples/queuegroup.js`](../examples/queuegroup.js) for the runnable version.
 
 ---
 
 ## Real-time Analytics
 
-Collect and aggregate analytics events.
-
 ```javascript
-// event-collector.js
-const { QueueBitServer, QueueBitClient } = require('queuebit');
-
-const server = new QueueBitServer({ port: 3000 });
-const collector = new QueueBitClient('http://localhost:3000');
-
-const stats = {
-  pageViews: 0,
-  clicks: 0,
-  purchases: 0
-};
+const stats = { pageViews: 0, clicks: 0, purchases: 0 };
 
 await collector.subscribe((message) => {
-  const { eventType, data } = message.data;
-  
-  switch(eventType) {
-    case 'pageview':
-      stats.pageViews++;
-      break;
-    case 'click':
-      stats.clicks++;
-      break;
-    case 'purchase':
-      stats.purchases++;
-      break;
-  }
-  
-  console.log('Stats:', stats);
+  const { eventType } = message.data;
+  if (eventType === 'pageview') stats.pageViews++;
+  if (eventType === 'click') stats.clicks++;
+  if (eventType === 'purchase') stats.purchases++;
 }, { subject: 'analytics' });
 
-// Display stats every 5 seconds
 setInterval(() => {
-  console.log('\n=== Analytics Dashboard ===');
-  console.log(`Page Views: ${stats.pageViews}`);
-  console.log(`Clicks: ${stats.clicks}`);
-  console.log(`Purchases: ${stats.purchases}`);
-  console.log('===========================\n');
+  console.log('Stats:', stats);
 }, 5000);
 
-// event-generator.js (simulate events)
-const client = new QueueBitClient('http://localhost:3000');
-
+// Simulate events
 setInterval(async () => {
   const events = ['pageview', 'click', 'purchase'];
-  const eventType = events[Math.floor(Math.random() * events.length)];
-  
   await client.publish(
-    {
-      eventType,
-      data: { userId: Math.floor(Math.random() * 1000) },
-      timestamp: new Date()
-    },
+    { eventType: events[Math.floor(Math.random() * 3)] },
     { subject: 'analytics' }
   );
 }, 100);
@@ -171,65 +127,33 @@ setInterval(async () => {
 
 ## Microservices Communication
 
-Services communicate through QueueBit.
-
 ```javascript
 // user-service.js
-const { QueueBitClient } = require('queuebit');
-const client = new QueueBitClient('http://localhost:3000');
-
-// Listen for user creation requests
 await client.subscribe(async (message) => {
   const { requestId, username, email } = message.data;
-  
-  // Create user in database
   const userId = await createUser(username, email);
-  
-  // Publish user created event
-  await client.publish(
-    { userId, username, email },
-    { subject: 'user.created' }
-  );
-  
-  // Send response
-  await client.publish(
-    { requestId, success: true, userId },
-    { subject: 'responses' }
-  );
+
+  await client.publish({ requestId, success: true, userId }, { subject: 'responses' });
+  await client.publish({ userId, username, email }, { subject: 'user.created' });
 }, { subject: 'user.create' });
 
-// order-service.js
-const client = new QueueBitClient('http://localhost:3000');
-
-// Listen for user created events
+// order-service.js - reacts to user creation events
 await client.subscribe(async (message) => {
-  const { userId, username } = message.data;
-  
-  console.log(`New user ${username} (${userId}) - initializing order history`);
+  const { userId } = message.data;
   await initializeOrderHistory(userId);
 }, { subject: 'user.created' });
 
 // api-gateway.js
-const client = new QueueBitClient('http://localhost:3000');
-
 async function createUser(username, email) {
-  const requestId = generateId();
-  
-  // Listen for response
+  const requestId = crypto.randomUUID();
+
   const responsePromise = new Promise((resolve) => {
-    client.subscribe((message) => {
-      if (message.data.requestId === requestId) {
-        resolve(message.data);
-      }
+    client.subscribe((msg) => {
+      if (msg.data.requestId === requestId) resolve(msg.data);
     }, { subject: 'responses' });
   });
-  
-  // Send request
-  await client.publish(
-    { requestId, username, email },
-    { subject: 'user.create' }
-  );
-  
+
+  await client.publish({ requestId, username, email }, { subject: 'user.create' });
   return responsePromise;
 }
 ```
@@ -238,93 +162,38 @@ async function createUser(username, email) {
 
 ## Event Sourcing
 
-Store all events and rebuild state.
-
 ```javascript
-// event-store.js
-const { QueueBitClient } = require('queuebit');
-const client = new QueueBitClient('http://localhost:3000');
-
 const events = [];
 
 // Store all events
 await client.subscribe((message) => {
   events.push(message.data);
-  console.log(`Event stored: ${message.data.type}`);
-}, { subject: 'events' });
+}, { subject: 'account.events' });
 
 // Rebuild state from events
-function rebuildState() {
-  const state = { balance: 0, transactions: [] };
-  
-  for (const event of events) {
-    switch(event.type) {
-      case 'deposit':
-        state.balance += event.amount;
-        state.transactions.push(event);
-        break;
-      case 'withdraw':
-        state.balance -= event.amount;
-        state.transactions.push(event);
-        break;
-    }
-  }
-  
-  return state;
+function getBalance() {
+  return events.reduce((bal, e) => {
+    if (e.type === 'deposit') return bal + e.amount;
+    if (e.type === 'withdraw') return bal - e.amount;
+    return bal;
+  }, 0);
 }
 
-// bank-account.js
-const client = new QueueBitClient('http://localhost:3000');
+// Publish events
+await client.publish({ type: 'deposit', amount: 100 }, { subject: 'account.events' });
+await client.publish({ type: 'withdraw', amount: 30 }, { subject: 'account.events' });
+await client.publish({ type: 'deposit', amount: 50 }, { subject: 'account.events' });
 
-async function deposit(amount) {
-  await client.publish(
-    {
-      type: 'deposit',
-      amount,
-      timestamp: new Date(),
-      accountId: 'ACC123'
-    },
-    { subject: 'events' }
-  );
-}
-
-async function withdraw(amount) {
-  await client.publish(
-    {
-      type: 'withdraw',
-      amount,
-      timestamp: new Date(),
-      accountId: 'ACC123'
-    },
-    { subject: 'events' }
-  );
-}
-
-// Usage
-await deposit(100);
-await withdraw(50);
-await deposit(75);
-
-// Rebuild state at any time
-const state = rebuildState();
-console.log('Current balance:', state.balance); // 125
+console.log('Balance:', getBalance()); // 120
 ```
-
----
-
-## More Examples
-
-See the [examples folder](../examples/) for:
-- Browser-based example with UI
-- Performance testing
-- Advanced patterns
 
 ---
 
 ## Tips
 
-1. **Use subjects** to organize message types
-2. **Queue groups** for scalable processing
-3. **Store event IDs** to prevent duplicate processing
-4. **Set expiry** for temporary messages
-5. **Monitor performance** with the test harness
+1. Use **subjects** to organize message types (e.g. `orders.created`, `users.login`)
+2. Use **load balancers** with unique queue names per worker for scalable processing
+3. Use **`removeAfterRead: true`** for one-time notifications
+4. Use **`expiry`** to auto-clean temporary messages
+5. The **`loadBalancerId`** in received messages identifies which load balancer delivered it
+6. Load balancer messages are **consumed** — not replayed to late subscribers

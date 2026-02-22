@@ -1,26 +1,29 @@
 # QueueBit
 
 A high performance socket-based message queue server with guaranteed delivery, compatible with NATS queue patterns.  
-Built in Load Balancer. (see examples).  
+Built-in Load Balancer with round-robin delivery. (see examples).  
 
-It can run in-process in an existing nodejs app, separately as a nodejs server, or run clients 
+It can run in-process in an existing Node.js app, separately as a standalone server, or run clients 
 in the backend and/or frontend.
+A frontend in examples (qpanel.html) can help test the server.
+
+## Installation
+```
+npm install @usermetrics/queuebit
+```
+
 
 ## Features
 
 - WebSocket-based message queue
 - Subject-based message routing
-- Load-balancer
+- Load balancer with round-robin delivery (each message goes to exactly one worker)
 - Message expiry support
-- Remove after read (ephemeral messages)
-- Guaranteed delivery to all subscribers
+- Ephemeral messages (remove after read)
+- Guaranteed delivery to all regular subscribers
+- Existing messages replayed to new regular subscribers
 - NATS-compatible API patterns
-
-## Installation
-
-```bash
-npm install queuebit
-```
+- Browser client support
 
 ## Documentation
 
@@ -28,168 +31,139 @@ npm install queuebit
 - **[API Reference](./docs/API.md)** - Complete API documentation
 - **[Examples](./docs/EXAMPLES.md)** - Practical examples for common use cases
 
-## Usage
+## Quick Start
 
-### Running the Server
+### Start the Server
 
-```bash
-npm run server
-```
-
-Or with custom options:
-```bash
-node src/server-runner.js --port=4000 --max-queue=5000
+```javascript
+const { QueueBitServer } = require('./src/server');
+const server = new QueueBitServer({ port: 3333 });
 ```
 
 On Windows:
 ```cmd
-start-server.cmd
+start_server.cmd
 ```
 
 ### Node.js Client
 
 ```javascript
-const { QueueBitClient } = require('queuebit');
+const { QueueBitClient } = require('./src/client-node');
 
-const client = new QueueBitClient('http://localhost:3000');
+const client = new QueueBitClient('http://localhost:3333');
 
 // Subscribe to messages
 await client.subscribe((message) => {
   console.log('Received:', message.data);
-});
+}, { subject: 'events' });
 
 // Publish a message
-await client.publish({ hello: 'world' });
+await client.publish({ hello: 'world' }, { subject: 'events' });
 ```
 
 ### Browser Client
 
-Include Socket.IO and QueueBit client in your HTML:
-
 ```html
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script src="node_modules/queuebit/src/client-browser.js"></script>
-
+<script src="src/client-browser.js"></script>
 <script>
-  const client = new QueueBitClient('http://localhost:3000');
-  
-  // Subscribe to messages
-  client.subscribe((message) => {
-    console.log('Received:', message.data);
-  });
-  
-  // Publish a message
-  client.publish({ hello: 'world from browser!' });
+  const client = new QueueBitClient('http://localhost:3333');
+  client.subscribe((msg) => console.log('Received:', msg.data), { subject: 'events' });
+  client.publish({ hello: 'world from browser!' }, { subject: 'events' });
 </script>
 ```
 
-See `examples/qpanel.html` for a complete browser example.
-Open it with Live Server in vscode to test.
+See [`examples/qpanel.html`](./examples/qpanel.html) for a complete browser dashboard.  
+Open it with Live Server in VS Code to test.
 
-### Server
-
-```javascript
-const { QueueBitServer } = require('queuebit');
-
-const server = new QueueBitServer({ 
-  port: 3000,
-  maxQueueSize: 10000 
-});
-```
-
-### Client
+### In-Process (Server + Client in Same Process)
 
 ```javascript
-const { QueueBitClient } = require('queuebit');
+const { QueueBitServer } = require('./src/server');
+const { QueueBitClient } = require('./src/client-node');
 
-const client = new QueueBitClient('http://localhost:3000');
+const server = new QueueBitServer({ port: 3333 });
+const client = new QueueBitClient('http://localhost:3333');
 
-// Subscribe to messages
-await client.subscribe((message) => {
-  console.log('Received:', message.data);
-});
-
-// Publish a message
-await client.publish({ hello: 'world' });
-
-// Subject-based routing
-await client.subscribe((message) => {
-  console.log('Order:', message.data);
-}, { subject: 'orders' });
-
-await client.publish({ orderId: 123 }, { subject: 'orders' });
-
-// Queue groups (load balanced)
-await client.subscribe((message) => {
-  console.log('Worker received:', message.data);
-}, { subject: 'tasks', queue: 'workers' });
-
-// Message with expiry
-const expiryDate = new Date(Date.now() + 60000); // 1 minute
-await client.publish({ data: 'expires soon' }, { 
-  expiry: expiryDate 
-});
-
-// One-time read message
-await client.publish({ data: 'read once' }, { 
-  removeAfterRead: true 
-});
+setTimeout(async () => {
+  await client.subscribe((msg) => console.log('Got:', msg.data));
+  await client.publish({ hello: 'world' });
+}, 500);
 ```
+
+See [`examples/inprocessserver.js`](./examples/inprocessserver.js) for a full example.
+
+## API Overview
+
+### Server Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `port` | number | 3333 | Server port |
+| `maxQueueSize` | number | 10000 | Max messages per subject |
+
+### Client Methods
+
+#### `publish(message, options)`
+Publish a message to the queue.
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `subject` | string | Message subject/topic (default: `'default'`) |
+| `expiry` | Date | Message expiration date |
+| `removeAfterRead` | boolean | Ephemeral — remove after first delivery |
+
+#### `subscribe(callback, options)`
+Subscribe to messages. Existing messages are replayed to new regular subscribers.
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `subject` | string | Subscribe to specific subject (default: `'default'`) |
+| `queue` | string | Unique name to join the load balancer with round-robin delivery |
+
+#### `unsubscribe(options)` · `getMessages(options)` · `disconnect()`
+
+See [API Reference](./docs/API.md) for full details.
+
+## Load Balancer
+
+Each worker subscribes with a **unique `queue` name** and gets its own load balancer ID.  
+Messages are distributed round-robin — each message goes to exactly **one** worker.
+
+```javascript
+// Worker 1 → LB#1
+await worker1.subscribe((msg) => {
+  console.log(`LB#${msg.loadBalancerId}:`, msg.data);
+}, { subject: 'tasks', queue: 'worker-1' });
+
+// Worker 2 → LB#2
+await worker2.subscribe((msg) => {
+  console.log(`LB#${msg.loadBalancerId}:`, msg.data);
+}, { subject: 'tasks', queue: 'worker-2' });
+
+// Publishes cycle: LB#1 → LB#2 → LB#1 → LB#2 ...
+```
+
+See [`examples/queuegroup.js`](./examples/queuegroup.js) for a runnable demo.
+
+## Examples
+
+| File | Description |
+|------|-------------|
+| [`examples/server2server.js`](./examples/server2server.js) | HTTP server using an external QueueBit server |
+| [`examples/inprocessserver.js`](./examples/inprocessserver.js) | HTTP server with QueueBit running in-process |
+| [`examples/queuegroup.js`](./examples/queuegroup.js) | Load balancer demo with 3 workers |
+| [`examples/qpanel.html`](./examples/qpanel.html) | Browser dashboard |
+| [`test/test-harness.js`](./test/test-harness.js) | Full test suite |
 
 ## Performance
 
-QueueBit is optimized for high throughput:
-
 - **WebSocket-only transport** for reduced overhead
-- **Batch message processing** on the server
-- **Async delivery** to prevent blocking
+- **Batch message processing** (100 messages per batch)
+- **Async delivery** via `setImmediate` to prevent blocking
 - **No compression** for maximum speed
-- **Typical throughput**: 20,000-50,000+ messages/second (depends on hardware and message size)
-
-### Performance Tips
-
-1. Use WebSocket transport only (default)
-2. Send messages in batches when possible
-3. Avoid very large message payloads
-4. Use queue groups for load balancing across multiple consumers
-5. Monitor queue sizes to prevent memory issues
-
-## API
-
-### QueueBitServer
-
-#### Constructor Options
-- `port` (number): Server port (default: 3000)
-- `maxQueueSize` (number): Maximum messages per subject (default: 10000)
-
-### QueueBitClient
-
-#### Methods
-
-##### `publish(message, options)`
-Publish a message to the queue.
-
-Options:
-- `subject` (string): Message subject/topic
-- `expiry` (Date): Message expiration date
-- `removeAfterRead` (boolean): Remove message after first delivery
-
-##### `subscribe(callback, options)`
-Subscribe to messages.
-
-Options:
-- `subject` (string): Subscribe to specific subject
-- `queue` (string): Join a queue group for load-balanced delivery
-
-##### `unsubscribe(options)`
-Unsubscribe from messages.
-
-##### `disconnect()`
-Disconnect from the server.
-
+- **Typical throughput**: 20,000–50,000+ messages/second
 
 ## License
 
 MIT License - See [LICENSE](LICENSE) file for details.
-
-This software is free to use with attribution. You must include the copyright notice and license text in all copies or substantial portions of the software.

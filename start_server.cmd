@@ -1,1 +1,1 @@
-npm run server
+npm run server --port 3333 --host 0.0.0.0

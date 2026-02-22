@@ -68,6 +68,3 @@ class QueueBitClient {
     this.socket.disconnect();
   }
 }
-
-// Node.js client (default export for npm package)
-module.exports = require('./client-node');
