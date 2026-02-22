@@ -1,7 +1,7 @@
 const { QueueBitServer } = require('./server');
-const { QueueBitClient } = require('./client');
+const { QueueBitClient } = require('./client-node');
 
-module.exports = {
-  QueueBitServer,
-  QueueBitClient
-};
+// Allow both: require('@usermetrics/queuebit') and const { QueueBitClient } = require('@usermetrics/queuebit')
+module.exports = QueueBitClient;
+module.exports.QueueBitClient = QueueBitClient;
+module.exports.QueueBitServer = QueueBitServer;
