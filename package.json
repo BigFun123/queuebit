@@ -1,6 +1,6 @@
 {
   "name": "@usermetrics/queuebit",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "publishConfig": {
     "access": "public"
   },
@@ -30,8 +30,7 @@
     "socket.io-client": "^4.7.2",
     "uuid": "^9.0.1"
   },
-  "devDependencies": {    
-  },
+  "devDependencies": {},
   "files": [
     "src/",
     "docs/",
