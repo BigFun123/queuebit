@@ -93,6 +93,9 @@ setTimeout(async () => {
 
 See [`examples/inprocessserver.js`](./examples/inprocessserver.js) for a full example.
 
+## Testing Control Panel
+![QueueBit Control Panel](./docs/screen.jpg)
+
 ## API Overview
 
 ### Server Options
