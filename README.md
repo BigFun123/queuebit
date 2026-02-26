@@ -1,7 +1,10 @@
 # QueueBit
 
 A high performance socket-based message queue server with guaranteed delivery, compatible with NATS queue patterns.  
+
 Built-in Load Balancer with round-robin delivery. (see examples).  
+
+If you need a pubsub between client and server, or server to server, this is a good choice.
 
 It can run in-process in an existing Node.js app, separately as a standalone server, or run clients 
 in the backend and/or frontend.
@@ -33,13 +36,27 @@ npm install @usermetrics/queuebit
 
 ## Quick Start
 
-### Start the Server
+### Start the Server in-process with a node app
+#### QueueBit runs with the main app. This can reduce costs for simple apps running the cloud.
 
 ```javascript
 const { QueueBitServer } = require('./src/server');
 const server = new QueueBitServer({ port: 3333 });
 ```
 
+### Start the Server with monitoring
+```javascript
+const { QueueBitServer } = require('../../src/server');
+const PORT = 3333;
+new QueueBitServer({ port: PORT, 
+    monitorInterval: 1000, 
+    monitorCallback: (data) => {
+    console.log(data);
+} });
+```
+
+### Start the Server as a standalone process
+#### The server runs standalone
 On Windows:
 ```cmd
 start_server.cmd
@@ -91,9 +108,8 @@ setTimeout(async () => {
 }, 500);
 ```
 
-See [`examples/inprocessserver.js`](./examples/inprocessserver.js) for a full example.
-
 ## Testing Control Panel
+#### run qpanel.html with live server in vscode  
 ![QueueBit Control Panel](./docs/screen.jpg)
 
 ## API Overview
@@ -114,7 +130,7 @@ Publish a message to the queue.
 |--------|------|-------------|
 | `subject` | string | Message subject/topic (default: `'default'`) |
 | `expiry` | Date | Message expiration date |
-| `removeAfterRead` | boolean | Ephemeral — remove after first delivery |
+| `removeAfterRead` | boolean | Ephemeral. Remove after first delivery |
 
 #### `subscribe(callback, options)`
 Subscribe to messages. Existing messages are replayed to new regular subscribers.
@@ -131,7 +147,7 @@ See [API Reference](./docs/API.md) for full details.
 ## Load Balancer
 
 Each worker subscribes with a **unique `queue` name** and gets its own load balancer ID.  
-Messages are distributed round-robin — each message goes to exactly **one** worker.
+Messages are distributed round-robin. Each message goes to exactly **one** worker.
 
 ```javascript
 // Worker 1 → LB#1
@@ -147,15 +163,21 @@ await worker2.subscribe((msg) => {
 // Publishes cycle: LB#1 → LB#2 → LB#1 → LB#2 ...
 ```
 
-See [`examples/queuegroup.js`](./examples/queuegroup.js) for a runnable demo.
-
 ## Examples
 
 | File | Description |
 |------|-------------|
-| [`examples/server2server.js`](./examples/server2server.js) | HTTP server using an external QueueBit server |
-| [`examples/inprocessserver.js`](./examples/inprocessserver.js) | HTTP server with QueueBit running in-process |
-| [`examples/queuegroup.js`](./examples/queuegroup.js) | Load balancer demo with 3 workers |
+| [`examples/standalone/server.js`](./examples/standalone/server.js) | Standalone QueueBit server with monitoring |
+| [`examples/standalone/start.cmd`](./examples/standalone/start.cmd) | Start the standalone server |
+| [`examples/client/server2server.js`](./examples/client/server2server.js) | HTTP server using an external QueueBit server |
+| [`examples/client/start.cmd`](./examples/client/start.cmd) | Start the client example |
+| [`examples/inprocess/inprocessserver.js`](./examples/inprocess/inprocessserver.js) | HTTP server with QueueBit running in-process |
+| [`examples/inprocess/start.cmd`](./examples/inprocess/start.cmd) | Start the in-process example |
+| [`examples/loadbalancer/loadbalancer.js`](./examples/loadbalancer/loadbalancer.js) | Load balancer demo with 3 workers |
+| [`examples/loadbalancer/server.js`](./examples/loadbalancer/server.js) | Server for load balancer demo |
+| [`examples/loadbalancer/start.cmd`](./examples/loadbalancer/start.cmd) | Start the load balancer demo |
+| [`examples/logger/logger.js`](./examples/logger/logger.js) | Log all messages from the default subject |
+| [`examples/logger/start.cmd`](./examples/logger/start.cmd) | Start the logger example |
 | [`examples/qpanel.html`](./examples/qpanel.html) | Browser dashboard |
 | [`test/test-harness.js`](./test/test-harness.js) | Full test suite |
 

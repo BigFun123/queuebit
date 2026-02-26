@@ -1,13 +1,16 @@
 /**
  * In-process QueueBit demo.
  * Starts the QueueBit server and an HTTP server in the same process.
- * Use the qpanel.html dashboard to publish messages to the queue and see them received by the HTTP server.
+ * Use the qpanel.html dashboard (run with live server in vscode) to publish messages to the queue
+ * and see them received by the HTTP server.
  * Run this example with /examples/start_node_inprocess.cmd
  * No need to run a separate QueueBit server.
+ * Pros: Simple setup, good for testing and demos. Lower costs since only one process is running.
+ * Cons: If the process crashes, both the queue server and HTTP server go down.
  */
 const http = require('http');
-const { QueueBitServer } = require('../src/server');
-const { QueueBitClient } = require('../src/client-node');
+const { QueueBitServer } = require('../../src/server');
+const { QueueBitClient } = require('../../src/client-node');
 
 const webserverPORT = 3000;
 const queuebitPORT = 3333;

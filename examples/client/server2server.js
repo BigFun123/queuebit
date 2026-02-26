@@ -5,7 +5,7 @@
  * run the server with /start_server.cmd and then run this example with /examples/start_node_client.cmd
  */
 const http = require('http');
-const { QueueBitClient } = require('../src/client-node');
+const { QueueBitClient } = require('../../src/client-node');
 
 const webserverPORT = 3000;
 const queuebitPORT = 3333;

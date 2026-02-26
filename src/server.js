@@ -7,6 +7,8 @@ class QueueBitServer {
     const port = options.port || 3000;
     this.maxQueueSize = options.maxQueueSize || 10000;
     this.version = packageJson.version;
+    this.monitorInterval = options.monitorInterval || null;
+    this.monitorCallback = options.monitorCallback || null;
     
     this.messages = new Map();
     this.subscribers = new Map();
@@ -33,6 +35,9 @@ class QueueBitServer {
     this.setupHandlers();
     this.startExpiryCheck();
     this.startDeliveryProcessor();
+    if (this.monitorInterval) {
+      this.startMonitor(this.monitorInterval);
+    }
     
     console.log(`QueueBit server v${this.version} listening on port ${port}`);
   }
@@ -294,6 +299,44 @@ class QueueBitServer {
         );
       }
     }, 1000); // Check every second
+  }
+
+  startMonitor(interval = 5000) {
+    setInterval(() => {
+      const stats = {
+        timestamp: new Date().toISOString(),
+        deliveryQueuePending: this.deliveryQueue.length,
+        subjects: {},
+        totalMessages: 0,
+        totalSubscribers: 0,
+        totalLBWorkers: 0,
+        loadBalancers: {}
+      };
+
+      for (const [subject, queue] of this.messages.entries()) {
+        stats.subjects[subject] = stats.subjects[subject] || {};
+        stats.subjects[subject].messages = queue.length;
+        stats.totalMessages += queue.length;
+      }
+
+      for (const [subject, subs] of this.subscribers.entries()) {
+        stats.subjects[subject] = stats.subjects[subject] || {};
+        stats.subjects[subject].subscribers = subs.size;
+        stats.totalSubscribers += subs.size;
+      }
+
+      for (const [subject, lbs] of this.loadBalancers.entries()) {
+        for (const [lbName, lb] of lbs.entries()) {
+          const key = `${subject} | ${lbName}`;
+          stats.loadBalancers[key] = lb.sockets.length;
+          stats.totalLBWorkers += lb.sockets.length;          
+        }
+      }
+
+      if (this.monitorCallback) {
+        this.monitorCallback(stats);
+      }
+    }, interval);
   }
 
   close() {

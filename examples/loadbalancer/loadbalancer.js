@@ -3,15 +3,15 @@
  * Messages are distributed round-robin across workers in the same load balancer.
  * Only ONE worker receives each message (unlike regular subscribe where ALL receive).
  * 
+ * Flow: Server Receives Message | Server sends to next worker in line for that load balancer id 
+ * Each client is given a loadbalancer id (e.g. 'workers'). 
+ * The server keeps track of which client is next in line for each loadbalancer id. 
  * Run this example with: node examples/queuegroup.js
  */
-const { QueueBitServer } = require('../src/server');
-const { QueueBitClient } = require('../src/client-node');
+
+const { QueueBitClient } = require('../../src/client-node');
 
 const PORT = 3333;
-
-// Start QueueBit server in-process
-new QueueBitServer({ port: PORT });
 
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -45,7 +45,7 @@ async function main() {
 
   for (let i = 1; i <= 6; i++) {
     await publisher.publish({ job: `task-${i}`, payload: `data-${i}` }, { subject: 'jobs' });
-    await sleep(100);
+    await sleep(1000);
   }
 
   await sleep(500);
