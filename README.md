@@ -1,6 +1,6 @@
 # QueueBit
 
-A high performance socket-based message queue server with guaranteed delivery, compatible with NATS queue patterns.  
+A tiny high performance socket-based message queue server with guaranteed delivery, compatible with NATS queue patterns.  
 
 Built-in Load Balancer with round-robin delivery. (see examples).  
 
@@ -120,6 +120,9 @@ setTimeout(async () => {
 |--------|------|---------|-------------|
 | `port` | number | 3333 | Server port |
 | `maxQueueSize` | number | 10000 | Max messages per subject |
+| `monitorInterval` | number | null | Interval in ms to emit monitor stats. Disabled if not set |
+| `monitorCallback` | function | null | Callback receiving stats object when monitor fires |
+
 
 ### Client Methods
 
@@ -173,6 +176,8 @@ await worker2.subscribe((msg) => {
 | [`examples/client/start.cmd`](./examples/client/start.cmd) | Start the client example |
 | [`examples/inprocess/inprocessserver.js`](./examples/inprocess/inprocessserver.js) | HTTP server with QueueBit running in-process |
 | [`examples/inprocess/start.cmd`](./examples/inprocess/start.cmd) | Start the in-process example |
+| [`examples/express/app.js`](./examples/express/app.js) | Express REST API with QueueBit in-process, Azure-ready |
+| [`examples/express/start.cmd`](./examples/express/start.cmd) | Start the Express example |
 | [`examples/loadbalancer/loadbalancer.js`](./examples/loadbalancer/loadbalancer.js) | Load balancer demo with 3 workers |
 | [`examples/loadbalancer/server.js`](./examples/loadbalancer/server.js) | Server for load balancer demo |
 | [`examples/loadbalancer/start.cmd`](./examples/loadbalancer/start.cmd) | Start the load balancer demo |
