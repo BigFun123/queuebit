@@ -116,6 +116,14 @@ class QueueBitClient {
     });
   }
 
+  clearMessages(options = {}) {
+    return new Promise((resolve) => {
+      this.socket.emit('clearMessages', options, (response) => {
+        resolve(response);
+      });
+    });
+  }
+
   handleMessage(message) {
     const subject = message.subject || 'default';
     const queueName = message.queueName || null;

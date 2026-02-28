@@ -68,6 +68,10 @@ class QueueBitServer {
         this.handleGetMessages(socket, options, callback);
       });
 
+      socket.on('clearMessages', (options, callback) => {
+        this.handleClearMessages(socket, options, callback);
+      });
+
       socket.on('disconnect', () => {
         this.handleDisconnect(socket);
         console.log(`Client disconnected: ${socket.id}`);
@@ -275,6 +279,15 @@ class QueueBitServer {
         })),
         count: messages.length
       });
+    }
+  }
+
+  handleClearMessages(socket, options, callback) {
+    const subject = options.subject || 'default';
+    const count = (this.messages.get(subject) || []).length;
+    this.messages.set(subject, []);
+    if (callback) {
+      callback({ success: true, subject, cleared: count });
     }
   }
 

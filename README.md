@@ -143,6 +143,22 @@ Subscribe to messages. Existing messages are replayed to new regular subscribers
 | `subject` | string | Subscribe to specific subject (default: `'default'`) |
 | `queue` | string | Unique name to join the load balancer with round-robin delivery |
 
+#### `clearMessages(options)`
+Remove all stored messages for a subject from the server.
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `subject` | string | Subject to clear (default: `'default'`) |
+
+Returns `{ success: true, subject, cleared: number }` where `cleared` is the number of messages removed.
+
+```javascript
+const res = await client.clearMessages({ subject: 'events' });
+console.log(`Cleared ${res.cleared} messages from "${res.subject}"`);
+```
+
+> Note: `clearMessages` only removes messages stored on the server. Subscribers that have already received messages are not affected.
+
 #### `unsubscribe(options)` · `getMessages(options)` · `disconnect()`
 
 See [API Reference](./docs/API.md) for full details.

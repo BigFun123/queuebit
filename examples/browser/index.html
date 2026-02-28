@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QueueBit Browser Example</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    button { margin: 5px; padding: 8px 16px; cursor: pointer; }
+    #output { background: #f4f4f4; padding: 15px; border-radius: 4px; min-height: 100px; white-space: pre-wrap; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <h1>QueueBit Browser Example</h1>
+  <div>
+    <button onclick="enqueueItem()">Enqueue Item</button>
+    <button onclick="dequeueItem()">Dequeue Item</button>
+    <button onclick="peekItem()">Peek</button>
+    <button onclick="clearQueue()">Clear</button>
+    <button onclick="showSize()">Show Size</button>
+  </div>
+  <h3>Output:</h3>
+  <div id="output"></div>
+
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <script src="../../src/client-browser.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
