@@ -1,5 +1,5 @@
-const { QueueBitServer } = require('../src/server');
-const { QueueBitClient } = require('../src/client-node');
+const { QueueBitServer } = require('../../src/server');
+const { QueueBitClient } = require('../../src/client-node');
 
 const PORT = 3333;
 

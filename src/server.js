@@ -1,6 +1,14 @@
 const { Server } = require('socket.io');
-const { v4: uuidv4 } = require('uuid');
 const packageJson = require('../package.json');
+
+// Local GUID generator (RFC 4122 v4 compliant)
+function generateGuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 class QueueBitServer {
   constructor(options = {}) {
@@ -82,7 +90,7 @@ class QueueBitServer {
   handlePublish(socket, message, options = {}, callback) {
     const subject = options.subject || 'default';
     const queueMessage = {
-      id: uuidv4(),
+      id: generateGuid(),
       data: message,
       expiry: options.expiry ? new Date(options.expiry) : undefined,
       removeAfterRead: options.removeAfterRead || false,

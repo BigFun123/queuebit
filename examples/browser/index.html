@@ -9,6 +9,7 @@
     button { margin: 5px; padding: 8px 16px; cursor: pointer; }
     #output { background: #f4f4f4; padding: 15px; border-radius: 4px; min-height: 100px; white-space: pre-wrap; font-family: monospace; }
   </style>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
 </head>
 <body>
   <h1>QueueBit Browser Example</h1>
@@ -22,8 +23,6 @@
   <h3>Output:</h3>
   <div id="output"></div>
 
-  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
-  <script src="../../src/client-browser.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="/main.js"></script>
 </body>
 </html>
