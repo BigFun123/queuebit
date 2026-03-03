@@ -2,7 +2,7 @@
 
 A tiny high performance socket-based message queue server with guaranteed delivery, compatible with NATS queue patterns.  
 
-Built-in Load Balancer with round-robin delivery. (see examples).  
+Optional Load Balancer with round-robin delivery. (see examples).  
 
 If you need a pubsub between client and server, or server to server, this is a good choice.
 
@@ -15,9 +15,7 @@ Browser clients
 React clients
 ```
 
-It can run in-process in an existing Node.js app, separately as a standalone server, or run clients 
-in the backend and/or frontend.
-A frontend in examples (qpanel.html) can help test the server.
+A frontend in examples (qpanel.html) will help test the server.
 
 ## Installation
 ```
@@ -29,7 +27,7 @@ npm install @usermetrics/queuebit
 
 - WebSocket-based message queue
 - Subject-based message routing
-- Load balancer with round-robin delivery (each message goes to exactly one worker)
+- Optional Load balancer with round-robin delivery (each message goes to exactly one worker)
 - Message expiry support
 - Ephemeral messages (remove after read)
 - Guaranteed delivery to all regular subscribers

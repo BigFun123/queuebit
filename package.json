@@ -6,19 +6,23 @@
   },
   "description": "A high performance queue with guaranteed delivery and built-in load balancer. Runs in-process or as a standalone server. Supports browser clients.",
   "main": "src/index.js",
+  "types": "src/types.d.ts",
   "browser": "src/client-browser.js",
   "module": "src/client-react.js",
   "exports": {
     ".": {
+      "types": "./src/types.d.ts",
       "import": "./src/client-react.js",
       "require": "./src/index.js",
       "browser": "./src/client-browser.js"
     },
     "./client": {
+      "types": "./src/types.d.ts",
       "import": "./src/client-react.js",
       "require": "./src/client-node.js"
     },
     "./server": {
+      "types": "./src/types.d.ts",
       "require": "./src/server.js"
     },
     "./src/*": "./src/*"
@@ -45,7 +49,10 @@
     "socket.io": "^4.7.2",
     "socket.io-client": "^4.7.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "typescript": "^5.9.3"
+  },
   "files": [
     "src/",
     "docs/",
