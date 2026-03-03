@@ -6,6 +6,15 @@ Built-in Load Balancer with round-robin delivery. (see examples).
 
 If you need a pubsub between client and server, or server to server, this is a good choice.
 
+```
+supports: 
+Standalone server
+In-process server
+Node.js clients
+Browser clients
+React clients
+```
+
 It can run in-process in an existing Node.js app, separately as a standalone server, or run clients 
 in the backend and/or frontend.
 A frontend in examples (qpanel.html) can help test the server.
@@ -31,6 +40,7 @@ npm install @usermetrics/queuebit
 ## Documentation
 
 - **[Quick Start Guide](./docs/QUICKSTART.md)** - Get started in 5 minutes
+- **[React Integration Guide](./docs/REACT.md)** - Complete guide for React applications
 - **[API Reference](./docs/API.md)** - Complete API documentation
 - **[Examples](./docs/EXAMPLES.md)** - Practical examples for common use cases
 
@@ -78,7 +88,38 @@ await client.subscribe((message) => {
 await client.publish({ hello: 'world' }, { subject: 'events' });
 ```
 
-### Browser Client
+### React Client
+
+```javascript
+import { QueueBitClient } from '@usermetrics/queuebit';
+import { useEffect, useState } from 'react';
+
+function App() {
+  const [client, setClient] = useState(null);
+  const [messages, setMessages] = useState([]);
+
+  useEffect(() => {
+    const queueClient = new QueueBitClient('http://localhost:3333');
+    
+    queueClient.subscribe((msg) => {
+      setMessages(prev => [...prev, msg]);
+    }, { subject: 'events' });
+
+    setClient(queueClient);
+    return () => queueClient.disconnect();
+  }, []);
+
+  const sendMessage = async () => {
+    await client?.publish({ hello: 'from React!' }, { subject: 'events' });
+  };
+
+  return <div>{/* Your UI */}</div>;
+}
+```
+
+See [`examples/react/`](./examples/react/) for complete React examples with hooks.
+
+### Browser Client (Vanilla JS)
 
 ```html
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>

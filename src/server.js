@@ -1,7 +1,11 @@
+// @ts-check
 const { Server } = require('socket.io');
 const packageJson = require('../package.json');
 
-// Local GUID generator (RFC 4122 v4 compliant)
+/**
+ * Local GUID generator (RFC 4122 v4 compliant)
+ * @returns {string} A UUID v4 string
+ */
 function generateGuid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
@@ -10,7 +14,29 @@ function generateGuid() {
   });
 }
 
+/**
+ * @typedef {import('./types').QueueBitServerOptions} QueueBitServerOptions
+ * @typedef {import('./types').QueueMessage} QueueMessage
+ * @typedef {import('./types').PublishOptions} PublishOptions
+ * @typedef {import('./types').SubscribeOptions} SubscribeOptions
+ * @typedef {import('./types').UnsubscribeOptions} UnsubscribeOptions
+ * @typedef {import('./types').GetMessagesOptions} GetMessagesOptions
+ * @typedef {import('./types').ClearMessagesOptions} ClearMessagesOptions
+ * @typedef {import('./types').PublishResponse} PublishResponse
+ * @typedef {import('./types').SubscribeResponse} SubscribeResponse
+ * @typedef {import('./types').UnsubscribeResponse} UnsubscribeResponse
+ * @typedef {import('./types').GetMessagesResponse} GetMessagesResponse
+ * @typedef {import('./types').ClearMessagesResponse} ClearMessagesResponse
+ * @typedef {import('./types').LoadBalancer} LoadBalancer
+ * @typedef {import('./types').MonitorStats} MonitorStats
+ * @typedef {import('socket.io').Socket} Socket
+ */
+
 class QueueBitServer {
+  /**
+   * Create a new QueueBit server
+   * @param {QueueBitServerOptions} [options={}] - Server configuration options
+   */
   constructor(options = {}) {
     const port = options.port || 3000;
     this.maxQueueSize = options.maxQueueSize || 10000;
@@ -87,6 +113,13 @@ class QueueBitServer {
     });
   }
 
+  /**
+   * Handle publish event
+   * @param {Socket} socket - The socket that published the message
+   * @param {any} message - The message data
+   * @param {PublishOptions} [options={}] - Publish options
+   * @param {(response: PublishResponse) => void} [callback] - Callback function
+   */
   handlePublish(socket, message, options = {}, callback) {
     const subject = options.subject || 'default';
     const queueMessage = {
@@ -140,6 +173,10 @@ class QueueBitServer {
     setImmediate(() => this.processDeliveries());
   }
 
+  /**
+   * Deliver a message to subscribers or load balancers
+   * @param {QueueMessage} message - The message to deliver
+   */
   deliverMessage(message) {
     const subject = message.subject || 'default';
 
@@ -183,6 +220,12 @@ class QueueBitServer {
     }
   }
 
+  /**
+   * Handle subscribe event
+   * @param {Socket} socket - The socket subscribing
+   * @param {SubscribeOptions} options - Subscribe options
+   * @param {(response: SubscribeResponse) => void} [callback] - Callback function
+   */
   handleSubscribe(socket, options, callback) {
     const subject = options.subject || 'default';
     const lbName = options.queue;
@@ -226,6 +269,12 @@ class QueueBitServer {
     }
   }
 
+  /**
+   * Handle unsubscribe event
+   * @param {Socket} socket - The socket unsubscribing
+   * @param {UnsubscribeOptions} options - Unsubscribe options
+   * @param {(response: UnsubscribeResponse) => void} [callback] - Callback function
+   */
   handleUnsubscribe(socket, options, callback) {
     const subject = options.subject || 'default';
     const lbName = options.queue;
@@ -253,6 +302,10 @@ class QueueBitServer {
     }
   }
 
+  /**
+   * Handle disconnect event
+   * @param {Socket} socket - The socket that disconnected
+   */
   handleDisconnect(socket) {
     // Remove from all subscriptions
     for (const subscribers of this.subscribers.values()) {
@@ -270,6 +323,12 @@ class QueueBitServer {
     }
   }
 
+  /**
+   * Handle getMessages event
+   * @param {Socket} socket - The socket requesting messages
+   * @param {GetMessagesOptions} options - Get messages options
+   * @param {(response: GetMessagesResponse) => void} [callback] - Callback function
+   */
   handleGetMessages(socket, options, callback) {
     const subject = options.subject || 'default';
     const messages = this.messages.get(subject) || [];
@@ -290,6 +349,12 @@ class QueueBitServer {
     }
   }
 
+  /**
+   * Handle clearMessages event
+   * @param {Socket} socket - The socket requesting to clear messages
+   * @param {ClearMessagesOptions} options - Clear messages options
+   * @param {(response: ClearMessagesResponse) => void} [callback] - Callback function
+   */
   handleClearMessages(socket, options, callback) {
     const subject = options.subject || 'default';
     const count = (this.messages.get(subject) || []).length;
@@ -299,6 +364,11 @@ class QueueBitServer {
     }
   }
 
+  /**
+   * Remove a message from the queue
+   * @param {string} messageId - The message ID to remove
+   * @param {string} subject - The subject/topic
+   */
   removeMessage(messageId, subject) {
     const queue = this.messages.get(subject);
     if (queue) {
@@ -309,6 +379,9 @@ class QueueBitServer {
     }
   }
 
+  /**
+   * Start expiry check interval
+   */
   startExpiryCheck() {
     setInterval(() => {
       const now = new Date();
@@ -322,8 +395,13 @@ class QueueBitServer {
     }, 1000); // Check every second
   }
 
+  /**
+   * Start monitor interval
+   * @param {number} [interval=5000] - Monitor interval in milliseconds
+   */
   startMonitor(interval = 5000) {
     setInterval(() => {
+      /** @type {MonitorStats} */
       const stats = {
         timestamp: new Date().toISOString(),
         deliveryQueuePending: this.deliveryQueue.length,

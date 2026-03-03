@@ -8,9 +8,26 @@
  * 
  * Then use:
  * const client = new QueueBitClient('http://localhost:3000');
+ * 
+ * @typedef {import('./types').PublishOptions} PublishOptions
+ * @typedef {import('./types').SubscribeOptions} SubscribeOptions
+ * @typedef {import('./types').UnsubscribeOptions} UnsubscribeOptions
+ * @typedef {import('./types').GetMessagesOptions} GetMessagesOptions
+ * @typedef {import('./types').ClearMessagesOptions} ClearMessagesOptions
+ * @typedef {import('./types').PublishResponse} PublishResponse
+ * @typedef {import('./types').SubscribeResponse} SubscribeResponse
+ * @typedef {import('./types').UnsubscribeResponse} UnsubscribeResponse
+ * @typedef {import('./types').GetMessagesResponse} GetMessagesResponse
+ * @typedef {import('./types').ClearMessagesResponse} ClearMessagesResponse
+ * @typedef {import('./types').QueueMessage} QueueMessage
+ * @typedef {import('./types').MessageHandler} MessageHandler
  */
 
 class QueueBitClient {
+  /**
+   * Create a new QueueBit client
+   * @param {string} [url='http://localhost:3000'] - Server URL
+   */
   constructor(url = 'http://localhost:3000') {
     if (typeof io === 'undefined') {
       throw new Error('Socket.IO client library not loaded. Please include: <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>');
@@ -55,6 +72,12 @@ class QueueBitClient {
     });
   }
 
+  /**
+   * Publish a message
+   * @param {any} message - Message data to publish
+   * @param {PublishOptions} [options={}] - Publish options
+   * @returns {Promise<PublishResponse>} Promise resolving to publish response
+   */
   publish(message, options = {}) {
     return new Promise((resolve, reject) => {
       console.log('Publishing message...');
@@ -77,6 +100,12 @@ class QueueBitClient {
     });
   }
 
+  /**
+   * Subscribe to messages
+   * @param {MessageHandler} callback - Message handler callback
+   * @param {SubscribeOptions} [options={}] - Subscribe options
+   * @returns {Promise<SubscribeResponse>} Promise resolving to subscribe response
+   */
   subscribe(callback, options = {}) {
     const subject = options.subject || 'default';
     const queueName = options.queue || null;
@@ -95,6 +124,11 @@ class QueueBitClient {
     });
   }
 
+  /**
+   * Unsubscribe from messages
+   * @param {UnsubscribeOptions} [options={}] - Unsubscribe options
+   * @returns {Promise<UnsubscribeResponse>} Promise resolving to unsubscribe response
+   */
   unsubscribe(options = {}) {
     const subject = options.subject || 'default';
     const queueName = options.queue || null;
@@ -108,6 +142,11 @@ class QueueBitClient {
     });
   }
 
+  /**
+   * Get messages from queue
+   * @param {GetMessagesOptions} [options={}] - Get messages options
+   * @returns {Promise<GetMessagesResponse>} Promise resolving to messages response
+   */
   getMessages(options = {}) {
     return new Promise((resolve) => {
       this.socket.emit('getMessages', options, (response) => {
@@ -116,6 +155,11 @@ class QueueBitClient {
     });
   }
 
+  /**
+   * Clear messages from queue
+   * @param {ClearMessagesOptions} [options={}] - Clear messages options
+   * @returns {Promise<ClearMessagesResponse>} Promise resolving to clear response
+   */
   clearMessages(options = {}) {
     return new Promise((resolve) => {
       this.socket.emit('clearMessages', options, (response) => {
@@ -124,6 +168,10 @@ class QueueBitClient {
     });
   }
 
+  /**
+   * Handle incoming message
+   * @param {QueueMessage} message - Received message
+   */
   handleMessage(message) {
     const subject = message.subject || 'default';
     const queueName = message.queueName || null;
@@ -137,6 +185,9 @@ class QueueBitClient {
     }
   }
 
+  /**
+   * Disconnect from server
+   */
   disconnect() {
     this.socket.disconnect();
   }

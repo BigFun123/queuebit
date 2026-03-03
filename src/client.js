@@ -1,6 +1,22 @@
+// @ts-check
 const { io } = require('socket.io-client');
 
+/**
+ * @typedef {import('./types').PublishOptions} PublishOptions
+ * @typedef {import('./types').SubscribeOptions} SubscribeOptions
+ * @typedef {import('./types').UnsubscribeOptions} UnsubscribeOptions
+ * @typedef {import('./types').PublishResponse} PublishResponse
+ * @typedef {import('./types').SubscribeResponse} SubscribeResponse
+ * @typedef {import('./types').UnsubscribeResponse} UnsubscribeResponse
+ * @typedef {import('./types').QueueMessage} QueueMessage
+ * @typedef {import('./types').MessageHandler} MessageHandler
+ */
+
 class QueueBitClient {
+  /**
+   * Create a new QueueBit client
+   * @param {string} [url='http://localhost:3333'] - Server URL
+   */
   constructor(url = 'http://localhost:3333') {
     this.socket = io(url);
     this.messageHandlers = new Map();
@@ -18,6 +34,12 @@ class QueueBitClient {
     });
   }
 
+  /**
+   * Publish a message
+   * @param {any} message - Message data to publish
+   * @param {PublishOptions} [options={}] - Publish options
+   * @returns {Promise<PublishResponse>} Promise resolving to publish response
+   */
   publish(message, options = {}) {
     return new Promise((resolve) => {
       this.socket.emit('publish', { message, options }, (response) => {
@@ -26,6 +48,12 @@ class QueueBitClient {
     });
   }
 
+  /**
+   * Subscribe to messages
+   * @param {MessageHandler} callback - Message handler callback
+   * @param {SubscribeOptions} [options={}] - Subscribe options
+   * @returns {Promise<SubscribeResponse>} Promise resolving to subscribe response
+   */
   subscribe(callback, options = {}) {
     const subject = options.subject || 'default';
     
@@ -42,6 +70,11 @@ class QueueBitClient {
     });
   }
 
+  /**
+   * Unsubscribe from messages
+   * @param {UnsubscribeOptions} [options={}] - Unsubscribe options
+   * @returns {Promise<UnsubscribeResponse>} Promise resolving to unsubscribe response
+   */
   unsubscribe(options = {}) {
     const subject = options.subject || 'default';
     this.messageHandlers.delete(subject);
@@ -53,6 +86,10 @@ class QueueBitClient {
     });
   }
 
+  /**
+   * Handle incoming message
+   * @param {QueueMessage} message - Received message
+   */
   handleMessage(message) {
     const subject = message.subject || 'default';
     const handlers = this.messageHandlers.get(subject);
@@ -64,6 +101,9 @@ class QueueBitClient {
     }
   }
 
+  /**
+   * Disconnect from server
+   */
   disconnect() {
     this.socket.disconnect();
   }

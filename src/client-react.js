@@ -1,25 +1,34 @@
-// @ts-check
-const { io } = require('socket.io-client');
-
 /**
+ * QueueBit React/ES6 Client
+ * 
+ * Usage in React:
+ * import { QueueBitClient } from '@usermetrics/queuebit/src/client-react';
+ * 
+ * const client = new QueueBitClient('http://localhost:3333');
+ * 
  * @typedef {import('./types').PublishOptions} PublishOptions
  * @typedef {import('./types').SubscribeOptions} SubscribeOptions
  * @typedef {import('./types').UnsubscribeOptions} UnsubscribeOptions
  * @typedef {import('./types').GetMessagesOptions} GetMessagesOptions
+ * @typedef {import('./types').ClearMessagesOptions} ClearMessagesOptions
  * @typedef {import('./types').PublishResponse} PublishResponse
  * @typedef {import('./types').SubscribeResponse} SubscribeResponse
  * @typedef {import('./types').UnsubscribeResponse} UnsubscribeResponse
  * @typedef {import('./types').GetMessagesResponse} GetMessagesResponse
+ * @typedef {import('./types').ClearMessagesResponse} ClearMessagesResponse
  * @typedef {import('./types').QueueMessage} QueueMessage
  * @typedef {import('./types').MessageHandler} MessageHandler
  */
 
-class QueueBitClient {
+import { io } from 'socket.io-client';
+
+export class QueueBitClient {
   /**
    * Create a new QueueBit client
    * @param {string} [url='http://localhost:3333'] - Server URL
+   * @param {object} [socketOptions={}] - Additional socket.io options
    */
-  constructor(url = 'http://localhost:3333') {
+  constructor(url = 'http://localhost:3333', socketOptions = {}) {
     this.socket = io(url, {
       transports: ['websocket'],
       upgrade: false,
@@ -27,7 +36,8 @@ class QueueBitClient {
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: Infinity,
-      perMessageDeflate: false
+      perMessageDeflate: false,
+      ...socketOptions
     });
     this.messageHandlers = new Map();
     this.connected = false;
@@ -69,7 +79,7 @@ class QueueBitClient {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Publish timeout - no response from server'));
-      }, 5000); // 5 second timeout
+      }, 5000);
       
       this.socket.emit('publish', { message, options }, (response) => {
         clearTimeout(timeout);
@@ -138,6 +148,19 @@ class QueueBitClient {
   }
 
   /**
+   * Clear messages from queue
+   * @param {ClearMessagesOptions} [options={}] - Clear messages options
+   * @returns {Promise<ClearMessagesResponse>} Promise resolving to clear response
+   */
+  clearMessages(options = {}) {
+    return new Promise((resolve) => {
+      this.socket.emit('clearMessages', options, (response) => {
+        resolve(response);
+      });
+    });
+  }
+
+  /**
    * Handle incoming message
    * @param {QueueMessage} message - Received message
    */
@@ -160,6 +183,31 @@ class QueueBitClient {
   disconnect() {
     this.socket.disconnect();
   }
+
+  /**
+   * Check if client is connected
+   * @returns {boolean} Connection status
+   */
+  isConnected() {
+    return this.connected;
+  }
+
+  /**
+   * Get server version
+   * @returns {string|null} Server version
+   */
+  getServerVersion() {
+    return this.serverVersion;
+  }
+
+  /**
+   * Get count of received messages
+   * @returns {number} Number of messages received
+   */
+  getReceivedMessageCount() {
+    return this.receivedMessages;
+  }
 }
 
-module.exports = { QueueBitClient, Queue: QueueBitClient };
+// Default export for convenience
+export default QueueBitClient;

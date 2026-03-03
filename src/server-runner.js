@@ -1,10 +1,16 @@
+// @ts-check
 const { QueueBitServer } = require('./server');
+
+/**
+ * @typedef {import('./types').QueueBitServerOptions} QueueBitServerOptions
+ */
 
 // Parse command line arguments
 const args = process.argv.slice(2);
 const portArg = args.find(arg => arg.startsWith('--port='));
 const maxQueueArg = args.find(arg => arg.startsWith('--max-queue='));
 
+/** @type {QueueBitServerOptions} */
 const options = {
   port: portArg ? parseInt(portArg.split('=')[1]) : 3333,
   maxQueueSize: maxQueueArg ? parseInt(maxQueueArg.split('=')[1]) : 1000000

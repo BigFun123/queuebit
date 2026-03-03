@@ -1,12 +1,28 @@
 {
   "name": "@usermetrics/queuebit",
-  "version": "1.0.11",
+  "version": "1.0.13",
   "publishConfig": {
     "access": "public"
   },
   "description": "A high performance queue with guaranteed delivery and built-in load balancer. Runs in-process or as a standalone server. Supports browser clients.",
   "main": "src/index.js",
   "browser": "src/client-browser.js",
+  "module": "src/client-react.js",
+  "exports": {
+    ".": {
+      "import": "./src/client-react.js",
+      "require": "./src/index.js",
+      "browser": "./src/client-browser.js"
+    },
+    "./client": {
+      "import": "./src/client-react.js",
+      "require": "./src/client-node.js"
+    },
+    "./server": {
+      "require": "./src/server.js"
+    },
+    "./src/*": "./src/*"
+  },
   "scripts": {
     "test": "node test/test-harness.js",
     "start": "node src/server-runner.js",
