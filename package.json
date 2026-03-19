@@ -34,7 +34,9 @@
     "start:debug": "node src/server-runner.js --debug",
     "server": "node src/server-runner.js",
     "auto": "nodemon src/server-runner.js",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm test",
+    "build": "pkg . --targets node18-win-x64 --output dist/queuebit-server.exe",
+    "build:all": "pkg . --targets node18-win-x64,node18-linux-x64,node18-macos-x64 --out-path dist"
   },
   "keywords": [
     "queue",
@@ -52,6 +54,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.3.3",
+    "pkg": "^5.8.1",
     "typescript": "^5.9.3"
   },
   "files": [
@@ -72,5 +75,15 @@
   "homepage": "https://github.com/bigfun123/queuebit#readme",
   "engines": {
     "node": ">=14.0.0"
+  },
+  "bin": {
+    "queuebit-server": "src/server-runner.js"
+  },
+  "pkg": {
+    "scripts": "src/**/*.js",
+    "assets": [
+      "package.json"
+    ],
+    "outputPath": "dist"
   }
 }

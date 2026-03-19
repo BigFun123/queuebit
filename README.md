@@ -8,8 +8,9 @@ If you need a pubsub between client and server, or server to server, this is a g
 
 ```
 supports: 
-Standalone server
-In-process server
+server exe (binary executable)
+Standalone nodejs server
+In-process nodejs server
 Node.js clients
 Browser clients
 React clients
@@ -89,6 +90,83 @@ node src/server-runner.js --debug
 Debug mode logs:
 - `[DEBUG] Publishing message:` - Shows when messages are published with subject and data
 - `[DEBUG] Client subscribing:` - Shows when clients subscribe to subjects
+
+### Building Standalone Executables
+
+QueueBit can be packaged as a standalone executable that doesn't require Node.js to be installed on the target machine.
+
+#### Prerequisites
+```bash
+npm install
+```
+
+#### Build Commands
+
+**Windows executable:**
+```bash
+npm run build
+```
+Creates: `dist/queuebit-server.exe`
+
+**All platforms (Windows, Linux, macOS):**
+```bash
+npm run build:all
+```
+Creates:
+- `dist/queuebit-server-win.exe`
+- `dist/queuebit-server-linux`
+- `dist/queuebit-server-macos`
+
+#### Running the Executable
+
+**Show help:**
+```bash
+./dist/queuebit-server.exe --help
+```
+
+**Show version:**
+```bash
+./dist/queuebit-server.exe --version
+```
+
+**Basic usage:**
+```bash
+./dist/queuebit-server.exe
+```
+
+**With custom port:**
+```bash
+./dist/queuebit-server.exe --port=8080
+```
+
+**With custom queue size:**
+```bash
+./dist/queuebit-server.exe --max-queue=500000
+```
+
+**With debug logging:**
+```bash
+./dist/queuebit-server.exe --debug
+```
+
+**Combined options:**
+```bash
+./dist/queuebit-server.exe --port=8080 --max-queue=500000 --debug
+```
+
+#### Command-Line Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--port=<number>` | Server port | 3333 |
+| `--max-queue=<number>` | Maximum queue size | 1000000 |
+| `--debug` | Enable debug logging | disabled |
+| `--help`, `-h` | Show help message | - |
+| `--version`, `-v` | Show version information | - |
+
+#### Distribution
+
+The generated executable is completely standalone and can be distributed without Node.js. Simply copy the `.exe` file to any Windows machine and run it.
 
 ### Node.js Client
 

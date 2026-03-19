@@ -7,6 +7,38 @@ const { QueueBitServer } = require('./server');
 
 // Parse command line arguments
 const args = process.argv.slice(2);
+
+// Check for help flag
+if (args.includes('--help') || args.includes('-h')) {
+  console.log(`
+QueueBit Server - High performance message queue server
+
+Usage: queuebit-server [options]
+
+Options:
+  --port=<number>       Server port (default: 3333)
+  --max-queue=<number>  Maximum queue size (default: 1000000)
+  --debug               Enable debug logging
+  --help, -h            Show this help message
+  --version, -v         Show version information
+
+Examples:
+  queuebit-server
+  queuebit-server --port=8080
+  queuebit-server --port=8080 --max-queue=500000 --debug
+
+For more information, visit: https://github.com/bigfun123/queuebit
+`);
+  process.exit(0);
+}
+
+// Check for version flag
+if (args.includes('--version') || args.includes('-v')) {
+  const packageJson = require('../package.json');
+  console.log(`QueueBit Server v${packageJson.version}`);
+  process.exit(0);
+}
+
 const portArg = args.find(arg => arg.startsWith('--port='));
 const maxQueueArg = args.find(arg => arg.startsWith('--max-queue='));
 const debugArg = args.includes('--debug');
