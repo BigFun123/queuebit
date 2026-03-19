@@ -1,11 +1,11 @@
 /**
  * QueueBit Browser Client
- * 
+ *
+ * No external dependencies — uses the browser's native WebSocket API.
+ *
  * Usage:
- * Include socket.io-client in your HTML:
- * <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
  * <script src="client-browser.js"></script>
- * 
+ *
  * Then use:
  * const client = new QueueBitClient('http://localhost:3000');
  * 
@@ -23,25 +23,99 @@
  * @typedef {import('./types').MessageHandler} MessageHandler
  */
 
+// ---------------------------------------------------------------------------
+// Minimal WebSocket wrapper (same JSON protocol as src/socket.js server)
+// ---------------------------------------------------------------------------
+const WS_OPEN = 1;
+
+class _BrowserSocket {
+  constructor(url) {
+    this._url = url.replace(/^http:\/\//, 'ws://').replace(/^https:\/\//, 'wss://');
+    this._handlers = new Map();
+    this._ackCallbacks = new Map();
+    this._ackCounter = 0;
+    this._reconnectAttempts = 0;
+    this._reconnectTimer = null;
+    this._closed = false;
+    this._reconnectDelay = 1000;
+    this._reconnectDelayMax = 5000;
+    this._ws = null;
+    this._connect();
+  }
+
+  _connect() {
+    const ws = new WebSocket(this._url);
+    this._ws = ws;
+    ws.addEventListener('open', () => {
+      this._reconnectAttempts = 0;
+      this._fire('connect');
+    });
+    ws.addEventListener('close', () => {
+      if (!this._closed) {
+        this._fire('disconnect');
+        this._scheduleReconnect();
+      }
+    });
+    ws.addEventListener('error', (e) => { this._fire('connect_error', e); });
+    ws.addEventListener('message', (e) => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch (_) { return; }
+      if (msg.type === 'event') {
+        this._fire(msg.name, msg.data);
+      } else if (msg.type === 'ack') {
+        const cb = this._ackCallbacks.get(msg.ackId);
+        if (cb) { this._ackCallbacks.delete(msg.ackId); cb(msg.data); }
+      }
+    });
+  }
+
+  _scheduleReconnect() {
+    this._reconnectAttempts++;
+    const delay = Math.min(this._reconnectDelay * this._reconnectAttempts, this._reconnectDelayMax);
+    this._reconnectTimer = setTimeout(() => { if (!this._closed) this._connect(); }, delay);
+  }
+
+  _fire(event, data) {
+    const hs = this._handlers.get(event);
+    if (hs) for (const h of hs) h(data);
+  }
+
+  on(event, handler) {
+    if (!this._handlers.has(event)) this._handlers.set(event, []);
+    this._handlers.get(event).push(handler);
+    return this;
+  }
+
+  emit(event, data, callback) {
+    if (!this._ws || this._ws.readyState !== WS_OPEN) {
+      if (callback) callback(null);
+      return this;
+    }
+    if (callback) {
+      const ackId = ++this._ackCounter;
+      this._ackCallbacks.set(ackId, callback);
+      this._ws.send(JSON.stringify({ type: 'event', name: event, data, ackId }));
+    } else {
+      this._ws.send(JSON.stringify({ type: 'event', name: event, data }));
+    }
+    return this;
+  }
+
+  disconnect() {
+    this._closed = true;
+    if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
+    if (this._ws) this._ws.close();
+  }
+}
+// ---------------------------------------------------------------------------
+
 class QueueBitClient {
   /**
    * Create a new QueueBit client
    * @param {string} [url='http://localhost:3000'] - Server URL
    */
   constructor(url = 'http://localhost:3000') {
-    if (typeof io === 'undefined') {
-      throw new Error('Socket.IO client library not loaded. Please include: <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>');
-    }
-    
-    this.socket = io(url, {
-      transports: ['websocket'],
-      upgrade: false,
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: Infinity,
-      perMessageDeflate: false
-    });
+    this.socket = new _BrowserSocket(url);
     this.messageHandlers = new Map();
     this.connected = false;
     this.serverVersion = null;

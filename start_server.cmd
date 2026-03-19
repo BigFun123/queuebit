@@ -1,1 +1,1 @@
-npm run server --port 3333 --host 0.0.0.0
+npm run start:debug --port 3333 --host 0.0.0.0

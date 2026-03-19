@@ -1,5 +1,5 @@
 // @ts-check
-const { io } = require('socket.io-client');
+const { io } = require('./socket-client.js');
 
 /**
  * @typedef {import('./types').PublishOptions} PublishOptions
@@ -25,7 +25,7 @@ class QueueBitClient {
       console.log('Connected to QueueBit server');
     });
 
-    this.socket.on('message', (message) => {
+    this.socket.on('message', (/** @type {QueueMessage} */ message) => {
       this.handleMessage(message);
     });
 
@@ -42,7 +42,7 @@ class QueueBitClient {
    */
   publish(message, options = {}) {
     return new Promise((resolve) => {
-      this.socket.emit('publish', { message, options }, (response) => {
+      this.socket.emit('publish', { message, options }, (/** @type {PublishResponse} */ response) => {
         resolve(response);
       });
     });
@@ -64,7 +64,7 @@ class QueueBitClient {
     this.messageHandlers.get(subject).add(callback);
 
     return new Promise((resolve) => {
-      this.socket.emit('subscribe', options, (response) => {
+      this.socket.emit('subscribe', options, (/** @type {SubscribeResponse} */ response) => {
         resolve(response);
       });
     });
@@ -80,7 +80,7 @@ class QueueBitClient {
     this.messageHandlers.delete(subject);
 
     return new Promise((resolve) => {
-      this.socket.emit('unsubscribe', options, (response) => {
+      this.socket.emit('unsubscribe', options, (/** @type {UnsubscribeResponse} */ response) => {
         resolve(response);
       });
     });

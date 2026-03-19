@@ -1,6 +1,9 @@
 // simple server wrapper
 // Run: npm run server (or npm start for both server and frontend)
-import { QueueBitServer } from '@usermetrics/queuebit';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { QueueBitServer } = require('@usermetrics/queuebit/server');
+
 const PORT = 3333;
 
 new QueueBitServer({

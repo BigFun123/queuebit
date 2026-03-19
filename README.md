@@ -70,6 +70,26 @@ On Windows:
 start_server.cmd
 ```
 
+Or with npm:
+```bash
+npm start
+```
+
+#### Debug Mode
+Start the server with debug logging to see all message publishing and subscription activity:
+```bash
+npm run start:debug
+```
+
+Or directly:
+```bash
+node src/server-runner.js --debug
+```
+
+Debug mode logs:
+- `[DEBUG] Publishing message:` - Shows when messages are published with subject and data
+- `[DEBUG] Client subscribing:` - Shows when clients subscribe to subjects
+
 ### Node.js Client
 
 ```javascript

@@ -20,7 +20,9 @@
  * @typedef {import('./types').MessageHandler} MessageHandler
  */
 
-import { io } from 'socket.io-client';
+import { createRequire } from 'module';
+const _require = createRequire(import.meta.url);
+const { io } = _require('./socket-client.js');
 
 export class QueueBitClient {
   /**

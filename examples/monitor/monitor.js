@@ -1,3 +1,18 @@
+/**
+ * QueueBit Server and Monitor Example
+ * 
+ * This example demonstrates how to use the QueueBit server's built-in monitoring capabilities.
+ * The monitor provides real-time statistics about the server's operation, including:
+ * - Message queue status
+ * - Subscription information
+ * - Load balancing statistics
+ * - Subject-specific metrics
+ *
+ * To run this example:
+ * 1. Start the QueueBit server with /start_server.cmd
+ * 2. Run this example with /examples/start_node_client.cmd
+ */
+
 const { QueueBitServer } = require('../../src/server');
 const { QueueBitClient } = require('../../src/client-node');
 

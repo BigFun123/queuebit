@@ -1,1 +1,1 @@
-node inprocessserver.js
+call node inprocessserver.js

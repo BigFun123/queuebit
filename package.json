@@ -1,6 +1,6 @@
 {
   "name": "@usermetrics/queuebit",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "publishConfig": {
     "access": "public"
   },
@@ -23,6 +23,7 @@
     },
     "./server": {
       "types": "./src/types.d.ts",
+      "import": "./src/server.js",
       "require": "./src/server.js"
     },
     "./src/*": "./src/*"
@@ -30,6 +31,7 @@
   "scripts": {
     "test": "node test/test-harness.js",
     "start": "node src/server-runner.js",
+    "start:debug": "node src/server-runner.js --debug",
     "server": "node src/server-runner.js",
     "auto": "nodemon src/server-runner.js",
     "prepublishOnly": "npm test"
@@ -46,8 +48,7 @@
   "author": "Karl Lilje <karl@karllilje.com>",
   "license": "MIT",
   "dependencies": {
-    "socket.io": "^4.7.2",
-    "socket.io-client": "^4.7.2"
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@types/node": "^25.3.3",

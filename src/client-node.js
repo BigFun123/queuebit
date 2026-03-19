@@ -1,5 +1,5 @@
 // @ts-check
-const { io } = require('socket.io-client');
+const { io } = require('./socket-client.js');
 
 /**
  * @typedef {import('./types').PublishOptions} PublishOptions
@@ -12,6 +12,7 @@ const { io } = require('socket.io-client');
  * @typedef {import('./types').GetMessagesResponse} GetMessagesResponse
  * @typedef {import('./types').QueueMessage} QueueMessage
  * @typedef {import('./types').MessageHandler} MessageHandler
+ * @typedef {import('./types').ServerInfo} ServerInfo
  */
 
 class QueueBitClient {
@@ -39,12 +40,12 @@ class QueueBitClient {
       this.connected = true;
     });
 
-    this.socket.on('serverInfo', (info) => {
+    this.socket.on('serverInfo', (/** @type {ServerInfo} */ info) => {
       this.serverVersion = info.version;
       console.log(`QueueBit Server v${info.version} - Connected at ${new Date(info.timestamp).toLocaleString()}`);
     });
 
-    this.socket.on('message', (message) => {
+    this.socket.on('message', (/** @type {QueueMessage} */ message) => {
       this.receivedMessages++;
       this.handleMessage(message);
     });
@@ -54,7 +55,7 @@ class QueueBitClient {
       this.connected = false;
     });
 
-    this.socket.on('connect_error', (error) => {
+    this.socket.on('connect_error', (/** @type {Error} */ error) => {
       console.error('Connection error:', error);
     });
   }
@@ -71,7 +72,7 @@ class QueueBitClient {
         reject(new Error('Publish timeout - no response from server'));
       }, 5000); // 5 second timeout
       
-      this.socket.emit('publish', { message, options }, (response) => {
+      this.socket.emit('publish', { message, options }, (/** @type {PublishResponse} */ response) => {
         clearTimeout(timeout);
         if (!response) {
           resolve({ success: false, error: 'No response from server' });
@@ -100,7 +101,7 @@ class QueueBitClient {
     this.messageHandlers.get(handlerKey).add(callback);
 
     return new Promise((resolve) => {
-      this.socket.emit('subscribe', options, (response) => {
+      this.socket.emit('subscribe', options, (/** @type {SubscribeResponse} */ response) => {
         resolve(response);
       });
     });
@@ -118,7 +119,7 @@ class QueueBitClient {
     this.messageHandlers.delete(handlerKey);
 
     return new Promise((resolve) => {
-      this.socket.emit('unsubscribe', options, (response) => {
+      this.socket.emit('unsubscribe', options, (/** @type {UnsubscribeResponse} */ response) => {
         resolve(response);
       });
     });
@@ -131,7 +132,7 @@ class QueueBitClient {
    */
   getMessages(options = {}) {
     return new Promise((resolve) => {
-      this.socket.emit('getMessages', options, (response) => {
+      this.socket.emit('getMessages', options, (/** @type {GetMessagesResponse} */ response) => {
         resolve(response);
       });
     });

@@ -241,6 +241,8 @@ export class QueueBitServer {
   deliveryBatchSize: number;
   /** Whether currently delivering */
   isDelivering: boolean;
+  /** Round-robin index for load balancers per subject */
+  _lbRoundRobinIndex: Record<string, number>;
 
   /**
    * Create a new QueueBit server

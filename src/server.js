@@ -1,5 +1,5 @@
 // @ts-check
-const { Server } = require('socket.io');
+const { Server } = require('./socket.js');
 const packageJson = require('../package.json');
 
 /**
@@ -29,7 +29,13 @@ function generateGuid() {
  * @typedef {import('./types').ClearMessagesResponse} ClearMessagesResponse
  * @typedef {import('./types').LoadBalancer} LoadBalancer
  * @typedef {import('./types').MonitorStats} MonitorStats
- * @typedef {import('socket.io').Socket} Socket
+ */
+
+/**
+ * @typedef {Object} Socket
+ * @property {string} id - Unique socket identifier
+ * @property {(event: string, handler: Function) => Socket} on - Register event handler
+ * @property {(event: string, data: any) => Socket} emit - Emit event to client
  */
 
 class QueueBitServer {
@@ -48,9 +54,12 @@ class QueueBitServer {
     this.subscribers = new Map();
     this.loadBalancers = new Map();
     this.loadBalancerIdCounter = 0;
+    /** @type {QueueMessage[]} */
     this.deliveryQueue = [];
     this.deliveryBatchSize = 100;
     this.isDelivering = false;
+    /** @type {Record<string, number>} */
+    this._lbRoundRobinIndex = {};
     
     this.io = new Server(port, {
       cors: {
@@ -77,7 +86,7 @@ class QueueBitServer {
   }
 
   setupHandlers() {
-    this.io.on('connection', (socket) => {
+    this.io.on('connection', /** @param {Socket} socket */ (socket) => {
       console.log(`Client connected: ${socket.id}`);
       
       socket.emit('serverInfo', { 
@@ -86,23 +95,23 @@ class QueueBitServer {
         timestamp: new Date()
       });
 
-      socket.on('publish', (data, callback) => {
+      socket.on('publish', (/** @type {{ message: any, options?: PublishOptions }} */ data, /** @type {(response: PublishResponse) => void} */ callback) => {
         this.handlePublish(socket, data.message, data.options || {}, callback);
       });
 
-      socket.on('subscribe', (options, callback) => {
+      socket.on('subscribe', (/** @type {SubscribeOptions} */ options, /** @type {(response: SubscribeResponse) => void} */ callback) => {
         this.handleSubscribe(socket, options, callback);
       });
 
-      socket.on('unsubscribe', (options, callback) => {
+      socket.on('unsubscribe', (/** @type {UnsubscribeOptions} */ options, /** @type {(response: UnsubscribeResponse) => void} */ callback) => {
         this.handleUnsubscribe(socket, options, callback);
       });
 
-      socket.on('getMessages', (options, callback) => {
+      socket.on('getMessages', (/** @type {GetMessagesOptions} */ options, /** @type {(response: GetMessagesResponse) => void} */ callback) => {
         this.handleGetMessages(socket, options, callback);
       });
 
-      socket.on('clearMessages', (options, callback) => {
+      socket.on('clearMessages', (/** @type {ClearMessagesOptions} */ options, /** @type {(response: ClearMessagesResponse) => void} */ callback) => {
         this.handleClearMessages(socket, options, callback);
       });
 
@@ -190,7 +199,6 @@ class QueueBitServer {
       }
 
       if (activeLBs.length > 0) {
-        if (!this._lbRoundRobinIndex) this._lbRoundRobinIndex = {};
         if (this._lbRoundRobinIndex[subject] === undefined) this._lbRoundRobinIndex[subject] = 0;
 
         const idx = this._lbRoundRobinIndex[subject] % activeLBs.length;
@@ -334,9 +342,9 @@ class QueueBitServer {
     const messages = this.messages.get(subject) || [];
     
     if (callback) {
-      callback({ 
-        success: true, 
-        messages: messages.map(msg => ({
+      callback({
+        success: true,
+        messages: messages.map((/** @type {QueueMessage} */ msg) => ({
           id: msg.id,
           data: msg.data,
           subject: msg.subject,
@@ -372,7 +380,7 @@ class QueueBitServer {
   removeMessage(messageId, subject) {
     const queue = this.messages.get(subject);
     if (queue) {
-      const index = queue.findIndex(m => m.id === messageId);
+      const index = queue.findIndex((/** @type {QueueMessage} */ m) => m.id === messageId);
       if (index > -1) {
         queue.splice(index, 1);
       }
@@ -389,7 +397,7 @@ class QueueBitServer {
       for (const [subject, queue] of this.messages.entries()) {
         this.messages.set(
           subject,
-          queue.filter(msg => !msg.expiry || msg.expiry > now)
+          queue.filter((/** @type {QueueMessage} */ msg) => !msg.expiry || msg.expiry > now)
         );
       }
     }, 1000); // Check every second
