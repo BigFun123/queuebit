@@ -1,6 +1,6 @@
 {
   "name": "@usermetrics/queuebit",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "publishConfig": {
     "access": "public"
   },
@@ -59,7 +59,8 @@
     "docs/",
     "examples/",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "start_server.cmd"
   ],
   "repository": {
     "type": "git",
