@@ -1,5 +1,6 @@
 // @ts-check
 const { Server } = require('./socket.js');
+const { QueuePersistence } = require('./queue-persistence');
 const packageJson = require('../package.json');
 
 /**
@@ -49,6 +50,12 @@ class QueueBitServer {
     this.version = packageJson.version;
     this.monitorInterval = options.monitorInterval || null;
     this.monitorCallback = options.monitorCallback || null;
+    this.persistence = options.persistentQueue
+      ? new QueuePersistence({
+        directory: options.queueDirectory,
+        fileName: options.queueFileName
+      })
+      : null;
     
     this.messages = new Map();
     this.subscribers = new Map();
@@ -58,8 +65,11 @@ class QueueBitServer {
     this.deliveryQueue = [];
     this.deliveryBatchSize = 100;
     this.isDelivering = false;
+    this._messageSequence = 0;
     /** @type {Record<string, number>} */
     this._lbRoundRobinIndex = {};
+
+    this.loadPersistedMessages();
     
     this.io = new Server(port, {
       cors: {
@@ -83,6 +93,89 @@ class QueueBitServer {
     }
     
     console.log(`QueueBit server v${this.version} listening on port ${port}`);
+  }
+
+  loadPersistedMessages() {
+    if (!this.persistence) {
+      return;
+    }
+
+    const persistedMessages = this.persistence.loadQueue();
+    if (persistedMessages.length === 0) {
+      return;
+    }
+
+    for (const persistedMessage of persistedMessages) {
+      const subject = persistedMessage.subject || 'default';
+      const sequence = Number.isFinite(persistedMessage.sequence)
+        ? persistedMessage.sequence
+        : this._messageSequence++;
+      const queueMessage = {
+        id: persistedMessage.id || generateGuid(),
+        data: persistedMessage.data,
+        expiry: persistedMessage.expiry ? new Date(persistedMessage.expiry) : undefined,
+        removeAfterRead: !!persistedMessage.removeAfterRead,
+        timestamp: persistedMessage.timestamp ? new Date(persistedMessage.timestamp) : new Date(),
+        subject,
+        priority: Number.isFinite(persistedMessage.priority) ? persistedMessage.priority : 0,
+        sequence
+      };
+
+      if (!this.messages.has(subject)) {
+        this.messages.set(subject, []);
+      }
+
+      this.messages.get(subject).push(queueMessage);
+      this._messageSequence = Math.max(this._messageSequence, sequence + 1);
+    }
+
+    for (const queue of this.messages.values()) {
+      queue.sort((/** @type {QueueMessage} */ a, /** @type {QueueMessage} */ b) => this.compareByPriorityAndSequence(a, b));
+    }
+
+    console.log(`Loaded ${persistedMessages.length} persisted messages from disk`);
+  }
+
+  /**
+   * @param {QueueMessage} a - First message
+   * @param {QueueMessage} b - Second message
+   * @returns {number} Sort order for priority queue
+   */
+  compareByPriorityAndSequence(a, b) {
+    const priorityDelta = (b.priority || 0) - (a.priority || 0);
+    if (priorityDelta !== 0) {
+      return priorityDelta;
+    }
+
+    return (a.sequence || 0) - (b.sequence || 0);
+  }
+
+  /**
+   * @param {QueueMessage[]} queue - Priority queue array
+   * @param {QueueMessage} message - Message to insert
+   */
+  insertPriority(queue, message) {
+    let low = 0;
+    let high = queue.length;
+
+    while (low < high) {
+      const mid = (low + high) >> 1;
+      if (this.compareByPriorityAndSequence(message, queue[mid]) < 0) {
+        high = mid;
+      } else {
+        low = mid + 1;
+      }
+    }
+
+    queue.splice(low, 0, message);
+  }
+
+  persistQueue() {
+    if (!this.persistence) {
+      return;
+    }
+
+    this.persistence.requestSave(this.messages);
   }
 
   setupHandlers() {
@@ -131,13 +224,18 @@ class QueueBitServer {
    */
   handlePublish(socket, message, options = {}, callback) {
     const subject = options.subject || 'default';
+    const priority = typeof options.priority === 'number' && Number.isFinite(options.priority)
+      ? options.priority
+      : 0;
     const queueMessage = {
       id: generateGuid(),
       data: message,
       expiry: options.expiry ? new Date(options.expiry) : undefined,
       removeAfterRead: options.removeAfterRead || false,
       timestamp: new Date(),
-      subject
+      subject,
+      priority,
+      sequence: this._messageSequence++
     };
 
     if (!this.messages.has(subject)) {
@@ -153,10 +251,12 @@ class QueueBitServer {
       return;
     }
 
-    queue.push(queueMessage);
+    this.insertPriority(queue, queueMessage);
     
     // Add to delivery queue for batch processing
-    this.deliveryQueue.push(queueMessage);
+    this.insertPriority(this.deliveryQueue, queueMessage);
+
+    this.persistQueue();
     
     // Immediately respond to client
     if (callback) {
@@ -364,11 +464,31 @@ class QueueBitServer {
    * @param {(response: ClearMessagesResponse) => void} [callback] - Callback function
    */
   handleClearMessages(socket, options, callback) {
+    const clearAll = !!options.all;
+    let count = 0;
+
+    if (clearAll) {
+      for (const queue of this.messages.values()) {
+        count += queue.length;
+      }
+
+      this.messages.clear();
+      this.deliveryQueue = [];
+      this.persistQueue();
+
+      if (callback) {
+        callback({ success: true, all: true, cleared: count });
+      }
+      return;
+    }
+
     const subject = options.subject || 'default';
-    const count = (this.messages.get(subject) || []).length;
+    count = (this.messages.get(subject) || []).length;
     this.messages.set(subject, []);
+    this.deliveryQueue = this.deliveryQueue.filter((/** @type {QueueMessage} */ message) => message.subject !== subject);
+    this.persistQueue();
     if (callback) {
-      callback({ success: true, subject, cleared: count });
+      callback({ success: true, subject, all: false, cleared: count });
     }
   }
 
@@ -383,6 +503,7 @@ class QueueBitServer {
       const index = queue.findIndex((/** @type {QueueMessage} */ m) => m.id === messageId);
       if (index > -1) {
         queue.splice(index, 1);
+        this.persistQueue();
       }
     }
   }
@@ -393,12 +514,18 @@ class QueueBitServer {
   startExpiryCheck() {
     setInterval(() => {
       const now = new Date();
+      let changed = false;
       
       for (const [subject, queue] of this.messages.entries()) {
-        this.messages.set(
-          subject,
-          queue.filter((/** @type {QueueMessage} */ msg) => !msg.expiry || msg.expiry > now)
-        );
+        const filteredQueue = queue.filter((/** @type {QueueMessage} */ msg) => !msg.expiry || msg.expiry > now);
+        if (filteredQueue.length !== queue.length) {
+          changed = true;
+          this.messages.set(subject, filteredQueue);
+        }
+      }
+
+      if (changed) {
+        this.persistQueue();
       }
     }, 1000); // Check every second
   }
@@ -447,6 +574,9 @@ class QueueBitServer {
   }
 
   close() {
+    if (this.persistence) {
+      this.persistence.forceSaveSync(this.messages);
+    }
     this.io.close();
   }
 }

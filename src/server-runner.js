@@ -8,6 +8,28 @@ const { QueueBitServer } = require('./server');
 // Parse command line arguments
 const args = process.argv.slice(2);
 
+/**
+ * @param {string[]} argv
+ * @param {string} name
+ * @returns {string | undefined}
+ */
+function getOptionValue(argv, name) {
+  const prefix = `${name}=`;
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg.startsWith(prefix)) {
+      return arg.slice(prefix.length);
+    }
+
+    if (arg === name) {
+      return argv[i + 1];
+    }
+  }
+
+  return undefined;
+}
+
 // Check for help flag
 if (args.includes('--help') || args.includes('-h')) {
   console.log(`
@@ -18,6 +40,9 @@ Usage: queuebit-server [options]
 Options:
   --port=<number>       Server port (default: 3333)
   --max-queue=<number>  Maximum queue size (default: 1000000)
+  --persistent-queue    Enable queue persistence to disk
+  --queue-dir=<path>    Directory for persistent queue file (default: current dir)
+  --queue-file=<name>   Queue file name (default: queue.jsonl)
   --debug               Enable debug logging
   --help, -h            Show this help message
   --version, -v         Show version information
@@ -25,6 +50,7 @@ Options:
 Examples:
   queuebit-server
   queuebit-server --port=8080
+  queuebit-server --persistent-queue --queue-dir=./data
   queuebit-server --port=8080 --max-queue=500000 --debug
 
 For more information, visit: https://github.com/bigfun123/queuebit
@@ -39,14 +65,20 @@ if (args.includes('--version') || args.includes('-v')) {
   process.exit(0);
 }
 
-const portArg = args.find(arg => arg.startsWith('--port='));
-const maxQueueArg = args.find(arg => arg.startsWith('--max-queue='));
+const portArg = getOptionValue(args, '--port');
+const maxQueueArg = getOptionValue(args, '--max-queue');
+const queueDirArg = getOptionValue(args, '--queue-dir');
+const queueFileArg = getOptionValue(args, '--queue-file');
+const persistentQueueArg = args.includes('--persistent-queue');
 const debugArg = args.includes('--debug');
 
 /** @type {QueueBitServerOptions} */
 const options = {
-  port: portArg ? parseInt(portArg.split('=')[1]) : 3333,
-  maxQueueSize: maxQueueArg ? parseInt(maxQueueArg.split('=')[1]) : 1000000
+  port: portArg ? parseInt(portArg, 10) : 3333,
+  maxQueueSize: maxQueueArg ? parseInt(maxQueueArg, 10) : 1000000,
+  persistentQueue: persistentQueueArg,
+  queueDirectory: queueDirArg,
+  queueFileName: queueFileArg
 };
 
 console.log('Starting QueueBit Server...');

@@ -151,7 +151,13 @@ class ClientSocket {
   _fireEvent(event, data) {
     const handlers = this._handlers.get(event);
     if (handlers) {
-      for (const h of handlers) h(data);
+      for (const h of handlers) {
+        try {
+          h(data);
+        } catch (error) {
+          console.error(`QueueBit client handler error during "${event}" event:`, error);
+        }
+      }
     }
   }
 

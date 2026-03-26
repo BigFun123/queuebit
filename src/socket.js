@@ -98,7 +98,13 @@ class ServerSocket {
         : undefined;
 
     for (const handler of handlers) {
-      handler(msg.data, callback);
+      try {
+        handler(msg.data, callback);
+      } catch (error) {
+        if (callback) {
+          callback({ success: false, error: error instanceof Error ? error.message : 'Server handler error' });
+        }
+      }
     }
   }
 
@@ -106,7 +112,13 @@ class ServerSocket {
   _handleClose() {
     const handlers = this._handlers.get('disconnect');
     if (handlers) {
-      for (const handler of handlers) handler();
+      for (const handler of handlers) {
+        try {
+          handler();
+        } catch (_) {
+          // Ignore disconnect handler failures during socket teardown.
+        }
+      }
     }
   }
 }

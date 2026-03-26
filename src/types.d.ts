@@ -15,6 +15,8 @@ import { Socket as ClientSocket } from 'socket.io-client';
 export interface PublishOptions {
   /** Subject/topic to publish to */
   subject?: string;
+  /** Priority for delivery order (higher values are delivered first) */
+  priority?: number;
   /** Message expiry date */
   expiry?: Date | string;
   /** Whether to remove message after it's read once */
@@ -55,6 +57,8 @@ export interface GetMessagesOptions {
 export interface ClearMessagesOptions {
   /** Subject/topic to clear messages from */
   subject?: string;
+  /** Clear all subjects and empty the persisted queue file */
+  all?: boolean;
 }
 
 /**
@@ -69,6 +73,10 @@ export interface QueueMessage<T = any> {
   subject: string;
   /** Message timestamp */
   timestamp: Date;
+  /** Message priority (higher values first) */
+  priority: number;
+  /** Sequence number to preserve FIFO when priorities are equal */
+  sequence: number;
   /** Message expiry date (optional) */
   expiry?: Date;
   /** Whether to remove after read */
@@ -133,6 +141,8 @@ export interface ClearMessagesResponse {
   success: boolean;
   /** Subject that was cleared */
   subject?: string;
+  /** Whether all subjects were cleared */
+  all?: boolean;
   /** Number of messages cleared */
   cleared?: number;
 }
@@ -166,6 +176,12 @@ export interface QueueBitServerOptions {
   port?: number;
   /** Maximum queue size per subject */
   maxQueueSize?: number;
+  /** Enable on-disk queue persistence */
+  persistentQueue?: boolean;
+  /** Directory for queue persistence file */
+  queueDirectory?: string;
+  /** Queue persistence file name */
+  queueFileName?: string;
   /** Monitor interval in milliseconds */
   monitorInterval?: number;
   /** Monitor callback function */

@@ -50,6 +50,8 @@ export interface GetMessagesOptions {
 export interface ClearMessagesOptions {
   /** Subject/topic to clear messages from */
   subject?: string;
+  /** Clear all subjects and empty the persisted queue file */
+  all?: boolean;
 }
 
 /**
@@ -128,6 +130,8 @@ export interface ClearMessagesResponse {
   success: boolean;
   /** Subject that was cleared */
   subject?: string;
+  /** Whether all subjects were cleared */
+  all?: boolean;
   /** Number of messages cleared */
   cleared?: number;
 }

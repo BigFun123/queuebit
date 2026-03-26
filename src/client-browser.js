@@ -77,7 +77,15 @@ class _BrowserSocket {
 
   _fire(event, data) {
     const hs = this._handlers.get(event);
-    if (hs) for (const h of hs) h(data);
+    if (hs) {
+      for (const h of hs) {
+        try {
+          h(data);
+        } catch (error) {
+          console.error(`QueueBit browser socket handler error during "${event}" event:`, error);
+        }
+      }
+    }
   }
 
   on(event, handler) {
@@ -254,7 +262,11 @@ class QueueBitClient {
     const handlers = this.messageHandlers.get(handlerKey);
     if (handlers) {
       for (const handler of handlers) {
-        handler(message);
+        try {
+          handler(message);
+        } catch (error) {
+          console.error(`QueueBit message handler error for subject "${subject}":`, error);
+        }
       }
     }
   }

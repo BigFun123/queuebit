@@ -5,9 +5,13 @@ const { io } = require('./socket-client.js');
  * @typedef {import('./types').PublishOptions} PublishOptions
  * @typedef {import('./types').SubscribeOptions} SubscribeOptions
  * @typedef {import('./types').UnsubscribeOptions} UnsubscribeOptions
+ * @typedef {import('./types').GetMessagesOptions} GetMessagesOptions
+ * @typedef {import('./types').ClearMessagesOptions} ClearMessagesOptions
  * @typedef {import('./types').PublishResponse} PublishResponse
  * @typedef {import('./types').SubscribeResponse} SubscribeResponse
  * @typedef {import('./types').UnsubscribeResponse} UnsubscribeResponse
+ * @typedef {import('./types').GetMessagesResponse} GetMessagesResponse
+ * @typedef {import('./types').ClearMessagesResponse} ClearMessagesResponse
  * @typedef {import('./types').QueueMessage} QueueMessage
  * @typedef {import('./types').MessageHandler} MessageHandler
  */
@@ -87,6 +91,32 @@ class QueueBitClient {
   }
 
   /**
+   * Get messages from queue
+   * @param {GetMessagesOptions} [options={}] - Get messages options
+   * @returns {Promise<GetMessagesResponse>} Promise resolving to messages response
+   */
+  getMessages(options = {}) {
+    return new Promise((resolve) => {
+      this.socket.emit('getMessages', options, (/** @type {GetMessagesResponse} */ response) => {
+        resolve(response);
+      });
+    });
+  }
+
+  /**
+   * Clear messages from queue
+   * @param {ClearMessagesOptions} [options={}] - Clear messages options
+   * @returns {Promise<ClearMessagesResponse>} Promise resolving to clear response
+   */
+  clearMessages(options = {}) {
+    return new Promise((resolve) => {
+      this.socket.emit('clearMessages', options, (/** @type {ClearMessagesResponse} */ response) => {
+        resolve(response);
+      });
+    });
+  }
+
+  /**
    * Handle incoming message
    * @param {QueueMessage} message - Received message
    */
@@ -96,7 +126,11 @@ class QueueBitClient {
     
     if (handlers) {
       for (const handler of handlers) {
-        handler(message);
+        try {
+          handler(message);
+        } catch (error) {
+          console.error(`QueueBit message handler error for subject "${subject}":`, error);
+        }
       }
     }
   }

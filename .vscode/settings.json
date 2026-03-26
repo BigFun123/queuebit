@@ -1,0 +1,14 @@
+{
+  "liveServer.settings.root": "/",
+  "liveServer.settings.port": 5500,
+  "liveServer.settings.ignoreFiles": [
+    "**/data/**",
+    "**/.tmp-persistence/**",
+    "**/data-test/**"
+  ],
+  "files.watcherExclude": {
+    "**/data/**": true,
+    "**/.tmp-persistence/**": true,
+    "**/data-test/**": true
+  }
+}

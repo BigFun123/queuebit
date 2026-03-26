@@ -1,6 +1,6 @@
 {
   "name": "@usermetrics/queuebit",
-  "version": "1.0.15",
+  "version": "1.0.16",
   "publishConfig": {
     "access": "public"
   },
@@ -30,6 +30,8 @@
   },
   "scripts": {
     "test": "node test/test-harness.js",
+    "test:persistence": "node test/test-persistence.js",
+    "test:connection": "node test/test-connection-stability.js",
     "start": "node src/server-runner.js",
     "start:debug": "node src/server-runner.js --debug",
     "server": "node src/server-runner.js",

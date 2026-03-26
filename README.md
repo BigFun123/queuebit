@@ -29,6 +29,7 @@ npm install @usermetrics/queuebit
 - WebSocket-based message queue
 - Subject-based message routing
 - Optional Load balancer with round-robin delivery (each message goes to exactly one worker)
+- Optional persistent queue storage on disk (JSONL)
 - Message expiry support
 - Ephemeral messages (remove after read)
 - Guaranteed delivery to all regular subscribers
@@ -149,9 +150,14 @@ Creates:
 ./dist/queuebit-server.exe --debug
 ```
 
+**With persistent queue:**
+```bash
+./dist/queuebit-server.exe --persistent-queue --queue-dir=./data
+```
+
 **Combined options:**
 ```bash
-./dist/queuebit-server.exe --port=8080 --max-queue=500000 --debug
+./dist/queuebit-server.exe --port=8080 --max-queue=500000 --persistent-queue --queue-dir=./data --debug
 ```
 
 #### Command-Line Options
@@ -160,6 +166,9 @@ Creates:
 |--------|-------------|---------|
 | `--port=<number>` | Server port | 3333 |
 | `--max-queue=<number>` | Maximum queue size | 1000000 |
+| `--persistent-queue` | Enable queue persistence to disk | disabled |
+| `--queue-dir=<path>` | Directory for persistent queue file | current directory |
+| `--queue-file=<name>` | Persistent queue filename | queue.jsonl |
 | `--debug` | Enable debug logging | disabled |
 | `--help`, `-h` | Show help message | - |
 | `--version`, `-v` | Show version information | - |
@@ -167,6 +176,23 @@ Creates:
 #### Distribution
 
 The generated executable is completely standalone and can be distributed without Node.js. Simply copy the `.exe` file to any Windows machine and run it.
+
+## Persistent Queue
+
+When `persistentQueue` is enabled (or `--persistent-queue` is passed to the server runner), QueueBit stores queued messages on disk and restores them on restart.
+
+- Storage format: JSON Lines (`.jsonl`), one message object per line
+- Default filename: `queue.jsonl`
+- Default location: current working directory (or set with `queueDirectory` / `--queue-dir`)
+- Custom filename: `queueFileName` / `--queue-file`
+
+Persistence behavior:
+
+- On startup: the queue is loaded from disk if the file exists; otherwise starts empty
+- On queue changes: the persistence file is updated when messages are added, removed, expired, or cleared
+- On shutdown: queue state is flushed to disk
+
+Implementation note: writes are batched and committed via a temporary file + rename to reduce corruption risk and improve write performance.
 
 ### Node.js Client
 
@@ -227,7 +253,7 @@ See [`examples/react/`](./examples/react/) for complete React examples with hook
 </script>
 ```
 
-See [`examples/qpanel.html`](./examples/qpanel.html) for a complete browser dashboard.  
+See [`examples/qpanel.html`](./examples/qpanel.html) for a complete browser dashboard.
 Open it with Live Server in VS Code to test.
 
 ### In-Process (Server + Client in Same Process)
@@ -246,8 +272,10 @@ setTimeout(async () => {
 ```
 
 ## Testing Control Panel
-#### run qpanel.html with live server in vscode  
+#### run qpanel.html with live server in vscode
 ![QueueBit Control Panel](./docs/screen.jpg)
+
+If you run qpanel with persistence enabled, Live Server must ignore the queue data folder. Otherwise each publish updates `data/queue.jsonl`, Live Server reloads the page, and the browser client disconnects. The workspace settings in `.vscode/settings.json` now exclude the persistence folders used by the examples.
 
 ## API Overview
 
@@ -257,6 +285,9 @@ setTimeout(async () => {
 |--------|------|---------|-------------|
 | `port` | number | 3333 | Server port |
 | `maxQueueSize` | number | 10000 | Max messages per subject |
+| `persistentQueue` | boolean | false | Persist queue to disk as JSONL |
+| `queueDirectory` | string | process cwd | Directory where queue file is stored |
+| `queueFileName` | string | queue.jsonl | Name of persistence file |
 | `monitorInterval` | number | null | Interval in ms to emit monitor stats. Disabled if not set |
 | `monitorCallback` | function | null | Callback receiving stats object when monitor fires |
 

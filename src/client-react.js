@@ -174,7 +174,11 @@ export class QueueBitClient {
     const handlers = this.messageHandlers.get(handlerKey);
     if (handlers) {
       for (const handler of handlers) {
-        handler(message);
+        try {
+          handler(message);
+        } catch (error) {
+          console.error(`QueueBit message handler error for subject "${subject}":`, error);
+        }
       }
     }
   }

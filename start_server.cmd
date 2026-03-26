@@ -1,1 +1,4 @@
-npm run start:debug --port 3333 --host 0.0.0.0
+@echo off
+echo Starting QueueBit Server...
+echo.
+node src/server-runner.js --debug --port=3333 --persistent-queue --queue-dir=./data

@@ -131,7 +131,8 @@
             <h2>Queue Operations</h2>
             <input type="text" id="getMessagesSubject" placeholder="Subject" class="small">
             <button onclick="getAllMessages()">Get All</button>
-            <button onclick="clearMessages()">Clear Display</button>
+            <button onclick="clearDisplay()">Clear Display</button>
+            <button onclick="clearQueue()">Clear Queue</button>
             <br>
             <select id="testMessageCount">
                 <option value="100">100 messages</option>
@@ -300,8 +301,29 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        function clearMessages() {
+        function clearDisplay() {
             document.getElementById('messages').innerHTML = '';
+        }
+
+        async function clearQueue() {
+            if (!client || !isConnected) {
+                alert('Please connect first and wait for connection to be established');
+                return;
+            }
+
+            try {
+                const result = await client.clearMessages({ all: true });
+
+                if (result.success) {
+                    clearDisplay();
+                    addMessage(`Cleared ${result.cleared || 0} queued message(s) from the server`);
+                } else {
+                    addMessage('Error clearing queue');
+                }
+            } catch (error) {
+                console.error('Error clearing queue:', error);
+                addMessage('Error: ' + error.message);
+            }
         }
 
         async function getAllMessages() {
@@ -316,7 +338,7 @@
                 const result = await client.getMessages({ subject });
                 
                 if (result.success) {
-                    clearMessages();
+                    clearDisplay();
                     addMessage(`=== Retrieved ${result.count} messages from queue "${subject}" ===`);
                     
                     result.messages.forEach((msg, index) => {
@@ -378,7 +400,7 @@
             perfStats.style.display = 'block';
             perfStats.innerHTML = 'Starting performance test...';
 
-            clearMessages();
+            clearDisplay();
             addMessage('=== Performance Test Started ===', true);
             addMessage(`Testing with ${totalMessages.toLocaleString()} messages in batches of ${batchSize}`, true);
 
